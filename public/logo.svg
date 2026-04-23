@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 116 40" fill="none">
+  <!-- D: spine -->
+  <line x1="6" y1="6" x2="6" y2="34" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- D: curve -->
+  <path d="M6,6 C20,6 30,12 30,20 C30,28 20,34 6,34" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- D: primary anchor dots -->
+  <circle cx="6"  cy="6"  r="3.5" fill="#3b82f6"/>
+  <circle cx="6"  cy="34" r="3.5" fill="#3b82f6"/>
+  <circle cx="30" cy="20" r="3.5" fill="#3b82f6"/>
+  <!-- D: secondary dots on curve (mid-anchors) -->
+  <circle cx="22" cy="7.5"  r="2" fill="#60a5fa"/>
+  <circle cx="22" cy="32.5" r="2" fill="#60a5fa"/>
+  <!-- "ravo" in handwritten italic -->
+  <text x="40" y="31"
+    font-family="'Segoe UI', system-ui, sans-serif"
+    font-size="26"
+    font-style="italic"
+    font-weight="300"
+    fill="#e2e8f0"
+    letter-spacing="-0.5">ravo</text>
+</svg>
