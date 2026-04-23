@@ -49,7 +49,7 @@ function App() {
       <Canvas />
       <div className="absolute bottom-4 sm:bottom-6 left-2 right-2 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-10 flex flex-col items-center gap-2">
         {showTextOptions && <TextOptions />}
-        <Toolbar onOpenJson={() => setShowJson(true)} />
+        <Toolbar onOpenJson={() => setShowJson(true)} onOpenHelp={() => setShowWelcome(true)} />
         <ColorPicker />
       </div>
       <StatusBar />

@@ -21,6 +21,7 @@ export const T = {
       redo:         'Rehacer (Ctrl+Shift+Z)',
       confirmClear: '¿Limpiar el canvas? Esta acción no se puede deshacer.',
       exportFile:   'dravo.png',
+      help:         'Ayuda',
     },
     colorPicker: {
       stroke:       'Trazo',
@@ -109,6 +110,7 @@ export const T = {
       redo:         'Redo (Ctrl+Shift+Z)',
       confirmClear: 'Clear the canvas? This cannot be undone.',
       exportFile:   'dravo.png',
+      help:         'Help',
     },
     colorPicker: {
       stroke:      'Stroke',

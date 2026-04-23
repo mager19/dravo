@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import {
   MousePointer2, Square, Circle, Minus, ArrowRight,
-  Pencil, Type, Trash2, Undo2, Redo2, FilePlus, Network, Download, Braces,
+  Pencil, Type, Trash2, Undo2, Redo2, FilePlus, Network, Download, Braces, HelpCircle,
 } from 'lucide-react'
 import Konva from 'konva'
 import { useStore } from './store'
@@ -9,7 +9,7 @@ import { T } from './i18n'
 import { Tooltip } from './Tooltip'
 import type { Tool } from './types'
 
-export function Toolbar({ onOpenJson }: { onOpenJson: () => void }) {
+export function Toolbar({ onOpenJson, onOpenHelp }: { onOpenJson: () => void; onOpenHelp: () => void }) {
   const { tool, setTool, undo, redo, clearCanvas, deleteSelectedShapes, lang, setLang } = useStore()
   const t = T[lang]
 
@@ -131,6 +131,15 @@ export function Toolbar({ onOpenJson }: { onOpenJson: () => void }) {
           </button>
         ))}
       </div>
+
+      <div className="w-px h-6 bg-[#3a3d4d] mx-1 shrink-0" />
+
+      <Tooltip label={t.toolbar.help}>
+        <button onClick={onOpenHelp}
+          className="shrink-0 p-2.5 sm:p-2 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-[#2e3144] transition-colors">
+          <HelpCircle size={18} />
+        </button>
+      </Tooltip>
     </div>
   )
 }

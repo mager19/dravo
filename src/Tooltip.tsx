@@ -3,10 +3,11 @@ import { useState, useRef } from 'react'
 interface TooltipProps {
   label: string
   shortcut?: string
+  className?: string
   children: React.ReactNode
 }
 
-export function Tooltip({ label, shortcut, children }: TooltipProps) {
+export function Tooltip({ label, shortcut, className, children }: TooltipProps) {
   const [visible, setVisible] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -14,7 +15,7 @@ export function Tooltip({ label, shortcut, children }: TooltipProps) {
   const hide = () => { if (timer.current) clearTimeout(timer.current); setVisible(false) }
 
   return (
-    <div className="relative" onMouseEnter={show} onMouseLeave={hide}>
+    <div className={`relative ${className ?? ''}`} onMouseEnter={show} onMouseLeave={hide}>
       {children}
       {visible && (
         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2.5 z-50 pointer-events-none">
