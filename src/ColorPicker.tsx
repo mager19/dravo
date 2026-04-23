@@ -6,8 +6,8 @@ const COLORS = ['#3b82f6', '#f43f5e', '#22c55e', '#f59e0b', '#a855f7', '#ec4899'
 const WIDTHS: StrokeWidth[] = [1, 2, 4, 8]
 
 export function ColorPicker() {
-  const { strokeColor, fillColor, strokeWidth, strokeDash, opacity, lang,
-    setStrokeColor, setFillColor, setStrokeWidth, setStrokeDash, setOpacity } = useStore()
+  const { strokeColor, fillColor, strokeWidth, strokeDash, opacity, roughEnabled, lang,
+    setStrokeColor, setFillColor, setStrokeWidth, setStrokeDash, setOpacity, setRoughEnabled } = useStore()
   const t = T[lang].colorPicker
 
   const DASHES: { value: StrokeDash; label: string; pattern: string }[] = [
@@ -71,6 +71,15 @@ export function ColorPicker() {
               </svg>
             </button>
           ))}
+          <button title={t.rough} onClick={() => setRoughEnabled(!roughEnabled)}
+            className={`flex items-center justify-center w-8 h-5 rounded transition-colors text-xs font-medium ${
+              roughEnabled ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-[#2e3144]'
+            }`}>
+            <svg width="22" height="8" viewBox="0 0 22 8">
+              <path d="M1 4 C3 1, 5 7, 7 4 C9 1, 11 7, 13 4 C15 1, 17 7, 19 4 C20 2.5, 21 3, 21 4"
+                stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+            </svg>
+          </button>
         </div>
       </div>
 

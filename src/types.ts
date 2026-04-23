@@ -24,6 +24,7 @@ interface ShapeBase {
   strokeWidth: StrokeWidth
   strokeDash: StrokeDash
   opacity: number
+  rough?: boolean
 }
 
 export interface RectShape extends ShapeBase {
@@ -32,6 +33,11 @@ export interface RectShape extends ShapeBase {
   y: number
   width: number
   height: number
+  label?: string
+  labelFontSize?: number
+  labelFontFamily?: string
+  labelBold?: boolean
+  labelItalic?: boolean
 }
 
 export interface EllipseShape extends ShapeBase {
@@ -40,6 +46,11 @@ export interface EllipseShape extends ShapeBase {
   y: number
   radiusX: number
   radiusY: number
+  label?: string
+  labelFontSize?: number
+  labelFontFamily?: string
+  labelBold?: boolean
+  labelItalic?: boolean
 }
 
 export interface LineShape extends ShapeBase {
@@ -87,6 +98,8 @@ import type { Lang } from './i18n'
 export type { Lang }
 
 export interface CanvasState {
+  isLabelEditing: boolean
+  roughEnabled: boolean
   lang: Lang
   shapes: Shape[]
   selectedIds: string[]

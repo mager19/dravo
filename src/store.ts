@@ -16,6 +16,8 @@ interface StoreActions {
   setTextFontFamily: (family: string) => void
   setTextBold: (bold: boolean) => void
   setTextItalic: (italic: boolean) => void
+  setIsLabelEditing: (v: boolean) => void
+  setRoughEnabled: (v: boolean) => void
   setLang: (lang: Lang) => void
 
   addShape: (shape: Shape) => void
@@ -48,6 +50,8 @@ const INITIAL_STATE: CanvasState = {
   textFontFamily: 'system-ui, sans-serif',
   textBold: false,
   textItalic: false,
+  isLabelEditing: false,
+  roughEnabled: false,
   lang: (localStorage.getItem('dravo:lang') as Lang | null) ?? 'es',
 }
 
@@ -87,6 +91,12 @@ export const useStore = create<CanvasState & StoreActions>((set, get) => ({
   setTextFontFamily: (textFontFamily) => set({ textFontFamily }),
   setTextBold: (textBold) => set({ textBold }),
   setTextItalic: (textItalic) => set({ textItalic }),
+  setIsLabelEditing: (isLabelEditing) => set({ isLabelEditing }),
+  setRoughEnabled: (roughEnabled) => {
+    set({ roughEnabled })
+    const { selectedIds } = get()
+    if (selectedIds.length) set((s) => ({ shapes: s.shapes.map(sh => selectedIds.includes(sh.id) ? { ...sh, rough: roughEnabled } as Shape : sh) }))
+  },
   setLang: (lang) => { localStorage.setItem('dravo:lang', lang); set({ lang }) },
 
   snapshot: () => {

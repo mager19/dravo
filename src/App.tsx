@@ -11,9 +11,9 @@ import type { TextShape } from './types'
 
 function App() {
   const {
-    tool, selectedIds, shapes,
+    tool, selectedIds, shapes, isLabelEditing,
     setStrokeColor, setFillColor, setStrokeWidth, setStrokeDash, setOpacity,
-    setTextFontSize, setTextFontFamily, setTextBold, setTextItalic,
+    setTextFontSize, setTextFontFamily, setTextBold, setTextItalic, setRoughEnabled,
   } = useStore()
 
   const [showJson, setShowJson] = useState(false)
@@ -26,7 +26,7 @@ function App() {
 
   const selectedShape = selectedIds.length === 1 ? shapes.find(s => s.id === selectedIds[0]) : undefined
   const isTextSelected = selectedShape?.type === 'text'
-  const showTextOptions = tool === 'text' || isTextSelected
+  const showTextOptions = tool === 'text' || isTextSelected || isLabelEditing
 
   useEffect(() => {
     if (!selectedShape) return
@@ -35,6 +35,7 @@ function App() {
     setStrokeWidth(selectedShape.strokeWidth)
     setStrokeDash(selectedShape.strokeDash)
     setOpacity(selectedShape.opacity)
+    setRoughEnabled(selectedShape.rough ?? false)
     if (isTextSelected) {
       const t = selectedShape as TextShape
       setTextFontSize(t.fontSize)

@@ -1,10 +1,10 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import Konva from 'konva'
-import { Stage, Layer, Rect, Ellipse, Line, Arrow, Shape as KonvaShape, Text, Transformer, Circle } from 'react-konva'
+import { Stage, Layer, Rect, Ellipse, Line, Arrow, Shape as KonvaShape, Text, Transformer, Circle, Group } from 'react-konva'
 import { getStroke } from 'perfect-freehand'
 import { useStore } from './store'
 import { nanoid } from './utils'
-import type { Shape, Point, FreehandShape, ConnectorShape, AnchorSide, StrokeDash } from './types'
+import type { Shape, Point, FreehandShape, ConnectorShape, AnchorSide, StrokeDash, RectShape, EllipseShape } from './types'
 
 const DASH_MAP: Record<StrokeDash, number[]> = {
   solid:    [],
@@ -13,6 +13,58 @@ const DASH_MAP: Record<StrokeDash, number[]> = {
   longdash: [20, 8],
 }
 import { getAnchorPos, getShapeAnchors, findNearestAnchor, findHoveredConnectable } from './anchors'
+import rough from 'roughjs'
+import type { Drawable } from 'roughjs/bin/core'
+
+function hashSeed(id: string): number {
+  let h = 0
+  for (let i = 0; i < id.length; i++) h = Math.imul(31, h) + id.charCodeAt(i) | 0
+  return Math.abs(h)
+}
+
+function drawRoughOps(raw: CanvasRenderingContext2D, drawable: Drawable, stroke: string, fill: string, strokeWidth: number) {
+  for (const set of drawable.sets) {
+    raw.save()
+    if (set.type === 'path') {
+      raw.strokeStyle = stroke
+      raw.lineWidth = strokeWidth
+      raw.beginPath()
+      for (const op of set.ops) {
+        const d = op.data
+        if (op.op === 'move') raw.moveTo(d[0], d[1])
+        else if (op.op === 'lineTo') raw.lineTo(d[0], d[1])
+        else if (op.op === 'bcurveTo') raw.bezierCurveTo(d[0], d[1], d[2], d[3], d[4], d[5])
+      }
+      raw.stroke()
+    } else if (set.type === 'fillPath') {
+      if (fill !== 'transparent') {
+        raw.fillStyle = fill
+        raw.beginPath()
+        for (const op of set.ops) {
+          const d = op.data
+          if (op.op === 'move') raw.moveTo(d[0], d[1])
+          else if (op.op === 'lineTo') raw.lineTo(d[0], d[1])
+          else if (op.op === 'bcurveTo') raw.bezierCurveTo(d[0], d[1], d[2], d[3], d[4], d[5])
+        }
+        raw.fill()
+      }
+    } else if (set.type === 'fillSketch') {
+      if (fill !== 'transparent') {
+        raw.strokeStyle = fill
+        raw.lineWidth = 1
+        raw.beginPath()
+        for (const op of set.ops) {
+          const d = op.data
+          if (op.op === 'move') raw.moveTo(d[0], d[1])
+          else if (op.op === 'lineTo') raw.lineTo(d[0], d[1])
+          else if (op.op === 'bcurveTo') raw.bezierCurveTo(d[0], d[1], d[2], d[3], d[4], d[5])
+        }
+        raw.stroke()
+      }
+    }
+    raw.restore()
+  }
+}
 
 // Helper: get bounding box of a shape in world coordinates
 function getShapeBounds(shape: Shape): { x: number; y: number; w: number; h: number } | null {
@@ -90,12 +142,13 @@ function ConnectorNode({ shape, shapes, isSelected: _isSelected, onSelect, onReg
   )
 }
 
-function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegister }: {
+function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegister, onDblClick }: {
   shape: Shape
   isSelected: boolean
   onSelect: (e: Konva.KonvaEventObject<MouseEvent>) => void
   onChange: (patch: Partial<Shape>) => void
   onRegister: (id: string, node: Konva.Node | null) => void
+  onDblClick?: () => void
 }) {
   const shapeRef = useRef<Konva.Node>(null)
 
@@ -121,62 +174,132 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
   let node: React.ReactNode = null
 
   if (shape.type === 'rect') {
+    const lw = Math.abs(shape.width)
+    const lh = Math.abs(shape.height)
+    const lx = shape.width < 0 ? shape.width : 0
+    const ly = shape.height < 0 ? shape.height : 0
     node = (
-      <Rect
-        ref={shapeRef as React.RefObject<Konva.Rect>}
-        {...common}
+      <Group
+        ref={shapeRef as React.RefObject<Konva.Group>}
         x={shape.x} y={shape.y}
-        width={shape.width} height={shape.height}
-        fill={shape.fillColor}
+        draggable opacity={shape.opacity}
+        onClick={onSelect}
+        onTap={() => onSelect({} as Konva.KonvaEventObject<MouseEvent>)}
+        onDblClick={onDblClick}
+        onDragEnd={(e: Konva.KonvaEventObject<DragEvent>) => onChange({ x: e.target.x(), y: e.target.y() } as Partial<Shape>)}
         onTransformEnd={() => {
-          const node = shapeRef.current as Konva.Rect
-          onChange({
-            x: node.x(), y: node.y(),
-            width: Math.max(1, node.width() * node.scaleX()),
-            height: Math.max(1, node.height() * node.scaleY()),
-          } as Partial<Shape>)
-          node.scaleX(1); node.scaleY(1)
+          const g = shapeRef.current as Konva.Group
+          onChange({ x: g.x(), y: g.y(), width: Math.max(1, shape.width * g.scaleX()), height: Math.max(1, shape.height * g.scaleY()) } as Partial<Shape>)
+          g.scaleX(1); g.scaleY(1)
         }}
-      />
+      >
+        {shape.rough ? (
+          <>
+            <KonvaShape listening={false} sceneFunc={(ctx, sh) => {
+              const raw = (ctx as any)._context as CanvasRenderingContext2D
+              const hasFill = shape.fillColor !== 'transparent'
+              const d = rough.generator().rectangle(lx, ly, lw, lh, {
+                seed: hashSeed(shape.id), roughness: 1.5, strokeWidth: shape.strokeWidth,
+                fill: hasFill ? shape.fillColor : undefined, fillStyle: 'hachure',
+              })
+              drawRoughOps(raw, d, shape.strokeColor, shape.fillColor, shape.strokeWidth)
+              ctx.fillStrokeShape(sh)
+            }} fill="transparent" stroke="transparent" strokeWidth={0} />
+            <Rect x={lx} y={ly} width={lw} height={lh} fill="transparent" stroke="transparent" strokeWidth={0} />
+          </>
+        ) : (
+          <Rect x={0} y={0} width={shape.width} height={shape.height} fill={shape.fillColor} stroke={shape.strokeColor} strokeWidth={shape.strokeWidth} dash={dashArray.length ? dashArray : undefined} />
+        )}
+        {shape.label && (
+          <Text x={lx} y={ly} width={lw} height={lh} text={shape.label} fontSize={shape.labelFontSize ?? 16} fontFamily={shape.labelFontFamily ?? 'system-ui, sans-serif'} fontStyle={[shape.labelItalic ? 'italic' : '', shape.labelBold ? 'bold' : ''].filter(Boolean).join(' ') || 'normal'} fill={shape.strokeColor} align="center" verticalAlign="middle" wrap="word" padding={6} listening={false} />
+        )}
+      </Group>
     )
   } else if (shape.type === 'ellipse') {
     node = (
-      <Ellipse
-        ref={shapeRef as React.RefObject<Konva.Ellipse>}
-        {...common}
+      <Group
+        ref={shapeRef as React.RefObject<Konva.Group>}
         x={shape.x} y={shape.y}
-        radiusX={shape.radiusX} radiusY={shape.radiusY}
-        fill={shape.fillColor}
+        draggable opacity={shape.opacity}
+        onClick={onSelect}
+        onTap={() => onSelect({} as Konva.KonvaEventObject<MouseEvent>)}
+        onDblClick={onDblClick}
+        onDragEnd={(e: Konva.KonvaEventObject<DragEvent>) => onChange({ x: e.target.x(), y: e.target.y() } as Partial<Shape>)}
         onTransformEnd={() => {
-          const node = shapeRef.current as Konva.Ellipse
-          onChange({
-            x: node.x(), y: node.y(),
-            radiusX: Math.max(1, node.radiusX() * node.scaleX()),
-            radiusY: Math.max(1, node.radiusY() * node.scaleY()),
-          } as Partial<Shape>)
-          node.scaleX(1); node.scaleY(1)
+          const g = shapeRef.current as Konva.Group
+          onChange({ x: g.x(), y: g.y(), radiusX: Math.max(1, shape.radiusX * g.scaleX()), radiusY: Math.max(1, shape.radiusY * g.scaleY()) } as Partial<Shape>)
+          g.scaleX(1); g.scaleY(1)
         }}
-      />
+      >
+        {shape.rough ? (
+          <>
+            <KonvaShape listening={false} sceneFunc={(ctx, sh) => {
+              const raw = (ctx as any)._context as CanvasRenderingContext2D
+              const hasFill = shape.fillColor !== 'transparent'
+              const d = rough.generator().ellipse(0, 0, shape.radiusX * 2, shape.radiusY * 2, {
+                seed: hashSeed(shape.id), roughness: 1.5, strokeWidth: shape.strokeWidth,
+                fill: hasFill ? shape.fillColor : undefined, fillStyle: 'hachure',
+              })
+              drawRoughOps(raw, d, shape.strokeColor, shape.fillColor, shape.strokeWidth)
+              ctx.fillStrokeShape(sh)
+            }} fill="transparent" stroke="transparent" strokeWidth={0} />
+            <Ellipse x={0} y={0} radiusX={shape.radiusX} radiusY={shape.radiusY} fill="transparent" stroke="transparent" strokeWidth={0} />
+          </>
+        ) : (
+          <Ellipse x={0} y={0} radiusX={shape.radiusX} radiusY={shape.radiusY} fill={shape.fillColor} stroke={shape.strokeColor} strokeWidth={shape.strokeWidth} dash={dashArray.length ? dashArray : undefined} />
+        )}
+        {shape.label && (
+          <Text x={-shape.radiusX} y={-shape.radiusY} width={shape.radiusX * 2} height={shape.radiusY * 2} text={shape.label} fontSize={shape.labelFontSize ?? 16} fontFamily={shape.labelFontFamily ?? 'system-ui, sans-serif'} fontStyle={[shape.labelItalic ? 'italic' : '', shape.labelBold ? 'bold' : ''].filter(Boolean).join(' ') || 'normal'} fill={shape.strokeColor} align="center" verticalAlign="middle" wrap="word" padding={6} listening={false} />
+        )}
+      </Group>
     )
   } else if (shape.type === 'line') {
-    node = (
-      <Line
-        ref={shapeRef as React.RefObject<Konva.Line>}
+    node = shape.rough ? (
+      <KonvaShape
+        ref={shapeRef as React.RefObject<Konva.Shape>}
         {...common}
-        points={shape.points}
-        fill="transparent"
+        hitStrokeWidth={12}
+        sceneFunc={(ctx, sh) => {
+          const raw = (ctx as any)._context as CanvasRenderingContext2D
+          const [x1, y1, x2, y2] = shape.points
+          const d = rough.generator().line(x1, y1, x2, y2, { seed: hashSeed(shape.id), roughness: 1.5, strokeWidth: shape.strokeWidth })
+          drawRoughOps(raw, d, shape.strokeColor, 'transparent', shape.strokeWidth)
+          ctx.fillStrokeShape(sh)
+        }}
+        fill="transparent" stroke="transparent" strokeWidth={0}
       />
+    ) : (
+      <Line ref={shapeRef as React.RefObject<Konva.Line>} {...common} points={shape.points} fill="transparent" />
     )
   } else if (shape.type === 'arrow') {
-    node = (
-      <Arrow
-        ref={shapeRef as React.RefObject<Konva.Arrow>}
+    node = shape.rough ? (
+      <KonvaShape
+        ref={shapeRef as React.RefObject<Konva.Shape>}
         {...common}
-        points={shape.points}
-        fill={shape.strokeColor}
-        pointerLength={10}
-        pointerWidth={8}
+        hitStrokeWidth={12}
+        sceneFunc={(ctx, sh) => {
+          const raw = (ctx as any)._context as CanvasRenderingContext2D
+          const [x1, y1, x2, y2] = shape.points
+          const d = rough.generator().line(x1, y1, x2, y2, { seed: hashSeed(shape.id), roughness: 1.5, strokeWidth: shape.strokeWidth })
+          drawRoughOps(raw, d, shape.strokeColor, 'transparent', shape.strokeWidth)
+          // arrowhead
+          const angle = Math.atan2(y2 - y1, x2 - x1)
+          const al = 12, aw = 8
+          raw.save()
+          raw.fillStyle = shape.strokeColor
+          raw.beginPath()
+          raw.moveTo(x2, y2)
+          raw.lineTo(x2 - al * Math.cos(angle - aw / al), y2 - al * Math.sin(angle - aw / al))
+          raw.lineTo(x2 - al * Math.cos(angle + aw / al), y2 - al * Math.sin(angle + aw / al))
+          raw.closePath()
+          raw.fill()
+          raw.restore()
+          ctx.fillStrokeShape(sh)
+        }}
+        fill="transparent" stroke="transparent" strokeWidth={0}
       />
+    ) : (
+      <Arrow ref={shapeRef as React.RefObject<Konva.Arrow>} {...common} points={shape.points} fill={shape.strokeColor} pointerLength={10} pointerWidth={8} />
     )
   } else if (shape.type === 'freehand') {
     node = (
@@ -223,6 +346,47 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
   return <>{node}</>
 }
 
+function LabelEditor({ ed, scale, fontSize, fontFamily, bold, italic, onCommit, onCancel }: {
+  ed: { shapeId: string; x: number; y: number; w: number; h: number; color: string; value: string }
+  scale: number
+  fontSize: number
+  fontFamily: string
+  bold: boolean
+  italic: boolean
+  onCommit: (v: string) => void
+  onCancel: () => void
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => { ref.current?.focus(); ref.current?.select() }, [])
+  return (
+    <textarea
+      ref={ref}
+      className="absolute outline-none resize-none text-center"
+      style={{
+        left: ed.x, top: ed.y, width: ed.w, height: ed.h,
+        fontSize: fontSize * scale,
+        fontFamily,
+        fontWeight: bold ? 'bold' : 'normal',
+        fontStyle: italic ? 'italic' : 'normal',
+        color: ed.color,
+        lineHeight: 1.3,
+        padding: Math.round(6 * scale),
+        paddingTop: Math.max(0, Math.round((ed.h - fontSize * scale * 1.3) / 2)),
+        boxSizing: 'border-box',
+        background: 'transparent',
+        border: 'none',
+        boxShadow: 'none',
+      }}
+      defaultValue={ed.value}
+      onBlur={(e) => onCommit(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') { e.stopPropagation(); onCancel() }
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onCommit((e.target as HTMLTextAreaElement).value) }
+      }}
+    />
+  )
+}
+
 export function Canvas() {
   const stageRef = useRef<Konva.Stage>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
@@ -230,10 +394,11 @@ export function Canvas() {
 
   const {
     shapes, selectedIds, tool,
-    strokeColor, fillColor, strokeWidth, strokeDash, opacity,
+    strokeColor, fillColor, strokeWidth, strokeDash, opacity, roughEnabled,
     stageScale, stagePos,
     textFontSize, textFontFamily, textBold, textItalic,
-    setSelectedIds, setStageScale, setStagePos, setTool,
+    setTextFontSize, setTextFontFamily, setTextBold, setTextItalic,
+    setSelectedIds, setStageScale, setStagePos, setTool, setIsLabelEditing,
     addShape, updateShape, deleteShape, deleteSelectedShapes,
   } = useStore()
 
@@ -257,6 +422,21 @@ export function Canvas() {
   const [connStart, setConnStart] = useState<ConnStart | null>(null)
   const connStartRef = useRef<ConnStart | null>(null)
   const [connDraftEnd, setConnDraftEnd] = useState<Point | null>(null)
+
+  const [labelEditor, setLabelEditor] = useState<{
+    shapeId: string; x: number; y: number; w: number; h: number; color: string; value: string
+  } | null>(null)
+  const labelEditorRef = useRef(labelEditor)
+  useEffect(() => { labelEditorRef.current = labelEditor }, [labelEditor])
+
+  const commitLabel = useCallback((value: string) => {
+    if (labelEditorRef.current) {
+      const { textFontSize: fs, textFontFamily: ff, textBold: b, textItalic: it } = useStore.getState()
+      updateShape(labelEditorRef.current.shapeId, { label: value || undefined, labelFontSize: fs, labelFontFamily: ff, labelBold: b, labelItalic: it } as Partial<Shape>)
+    }
+    setLabelEditor(null)
+    setIsLabelEditing(false)
+  }, [updateShape, setIsLabelEditing])
 
   // Register/unregister shape nodes for the Transformer
   const registerRef = useCallback((id: string, node: Konva.Node | null) => {
@@ -328,7 +508,7 @@ export function Canvas() {
       lastPointer.current = { x: e.evt.clientX, y: e.evt.clientY }
       return
     }
-    if (textInputRef.current) return
+    if (textInputRef.current || labelEditorRef.current) return
 
     if (tool === 'select') {
       if (e.target === stageRef.current) {
@@ -354,7 +534,7 @@ export function Canvas() {
 
     const pos = getPointerPos()
     const id = nanoid()
-    const base = { id, strokeColor, fillColor, strokeWidth, strokeDash, opacity }
+    const base = { id, strokeColor, fillColor, strokeWidth, strokeDash, opacity, rough: roughEnabled }
 
     if (tool === 'text') {
       e.evt.preventDefault()
@@ -596,6 +776,30 @@ export function Canvas() {
                 }}
                 onChange={(patch) => updateShape(shape.id, patch)}
                 onRegister={registerRef}
+                onDblClick={() => {
+                  if (tool !== 'select') return
+                  if (shape.type !== 'rect' && shape.type !== 'ellipse') return
+                  const sh = shape as RectShape | EllipseShape
+                  let lx: number, ly: number, lw: number, lh: number
+                  if (sh.type === 'rect') {
+                    const w = sh.width, h = sh.height
+                    lx = (w < 0 ? sh.x + w : sh.x) * stageScale + stagePos.x
+                    ly = (h < 0 ? sh.y + h : sh.y) * stageScale + stagePos.y
+                    lw = Math.abs(w) * stageScale
+                    lh = Math.abs(h) * stageScale
+                  } else {
+                    lx = (sh.x - sh.radiusX) * stageScale + stagePos.x
+                    ly = (sh.y - sh.radiusY) * stageScale + stagePos.y
+                    lw = sh.radiusX * 2 * stageScale
+                    lh = sh.radiusY * 2 * stageScale
+                  }
+                  setTextFontSize(sh.labelFontSize ?? 16)
+                  setTextFontFamily(sh.labelFontFamily ?? 'system-ui, sans-serif')
+                  setTextBold(sh.labelBold ?? false)
+                  setTextItalic(sh.labelItalic ?? false)
+                  setIsLabelEditing(true)
+                  setLabelEditor({ shapeId: sh.id, x: lx, y: ly, w: lw, h: lh, color: sh.strokeColor, value: sh.label ?? '' })
+                }}
               />
             )
           )}
@@ -657,6 +861,20 @@ export function Canvas() {
           />
         </Layer>
       </Stage>
+
+      {labelEditor && (
+        <LabelEditor
+          key={labelEditor.shapeId}
+          ed={labelEditor}
+          scale={stageScale}
+          fontSize={textFontSize}
+          fontFamily={textFontFamily}
+          bold={textBold}
+          italic={textItalic}
+          onCommit={commitLabel}
+          onCancel={() => { setLabelEditor(null); setIsLabelEditing(false) }}
+        />
+      )}
 
       {textInput && (
         <textarea

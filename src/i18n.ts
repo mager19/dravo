@@ -35,6 +35,7 @@ export const T = {
       dotted:       'Punteado',
       dashed:       'Guiones',
       longdash:     'Largo',
+      rough:        'Mano alzada',
     },
     textOptions: {
       bold:   'Negrita',
@@ -124,6 +125,7 @@ export const T = {
       dotted:      'Dotted',
       dashed:      'Dashed',
       longdash:    'Long dash',
+      rough:       'Hand-drawn',
     },
     textOptions: {
       bold:   'Bold',

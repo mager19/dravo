@@ -44,7 +44,7 @@ export function TextOptions() {
   }
 
   return (
-    <div className="flex items-center gap-2 bg-[#22242f] border border-[#3a3d4d] rounded-xl px-3 py-1.5 shadow-xl">
+    <div className="flex items-center gap-2 bg-[#22242f] border border-[#3a3d4d] rounded-xl px-3 py-1.5 shadow-xl" onMouseDown={e => e.preventDefault()}>
       <div className="flex gap-1">
         {FONTS.map(({ label, value }) => (
           <button
