@@ -16,9 +16,10 @@ export function TextOptions() {
   const {
     textFontSize, textFontFamily, textBold, textItalic,
     setTextFontSize, setTextFontFamily, setTextBold, setTextItalic,
-    selectedId, shapes, updateShape,
+    selectedIds, shapes, updateShape,
   } = useStore()
 
+  const selectedId = selectedIds.length === 1 ? selectedIds[0] : null
   const selectedText = selectedId
     ? (shapes.find(s => s.id === selectedId && s.type === 'text') as TextShape | undefined)
     : undefined

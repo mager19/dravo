@@ -9,7 +9,7 @@ interface StoreActions {
   setStrokeWidth: (width: StrokeWidth) => void
   setStrokeDash: (dash: StrokeDash) => void
   setOpacity: (opacity: number) => void
-  setSelectedId: (id: string | null) => void
+  setSelectedIds: (ids: string[]) => void
   setStageScale: (scale: number) => void
   setStagePos: (pos: Point) => void
   setTextFontSize: (size: number) => void
@@ -21,6 +21,7 @@ interface StoreActions {
   addShape: (shape: Shape) => void
   updateShape: (id: string, patch: Partial<Shape>) => void
   deleteShape: (id: string) => void
+  deleteSelectedShapes: () => void
   setShapes: (shapes: Shape[]) => void
 
   undo: () => void
@@ -32,7 +33,7 @@ interface StoreActions {
 
 const INITIAL_STATE: CanvasState = {
   shapes: [],
-  selectedId: null,
+  selectedIds: [],
   tool: 'select',
   strokeColor: '#3b82f6',
   fillColor: 'transparent',
@@ -53,33 +54,33 @@ const INITIAL_STATE: CanvasState = {
 export const useStore = create<CanvasState & StoreActions>((set, get) => ({
   ...INITIAL_STATE,
 
-  setTool: (tool) => set({ tool, selectedId: null }),
+  setTool: (tool) => set({ tool, selectedIds: [] }),
   setStrokeColor: (strokeColor) => {
     set({ strokeColor })
-    const { selectedId } = get()
-    if (selectedId) set((s) => ({ shapes: s.shapes.map(sh => sh.id === selectedId ? { ...sh, strokeColor } as Shape : sh) }))
+    const { selectedIds } = get()
+    if (selectedIds.length) set((s) => ({ shapes: s.shapes.map(sh => selectedIds.includes(sh.id) ? { ...sh, strokeColor } as Shape : sh) }))
   },
   setFillColor: (fillColor) => {
     set({ fillColor })
-    const { selectedId } = get()
-    if (selectedId) set((s) => ({ shapes: s.shapes.map(sh => sh.id === selectedId ? { ...sh, fillColor } as Shape : sh) }))
+    const { selectedIds } = get()
+    if (selectedIds.length) set((s) => ({ shapes: s.shapes.map(sh => selectedIds.includes(sh.id) ? { ...sh, fillColor } as Shape : sh) }))
   },
   setStrokeWidth: (strokeWidth) => {
     set({ strokeWidth })
-    const { selectedId } = get()
-    if (selectedId) set((s) => ({ shapes: s.shapes.map(sh => sh.id === selectedId ? { ...sh, strokeWidth } as Shape : sh) }))
+    const { selectedIds } = get()
+    if (selectedIds.length) set((s) => ({ shapes: s.shapes.map(sh => selectedIds.includes(sh.id) ? { ...sh, strokeWidth } as Shape : sh) }))
   },
   setStrokeDash: (strokeDash) => {
     set({ strokeDash })
-    const { selectedId } = get()
-    if (selectedId) set((s) => ({ shapes: s.shapes.map(sh => sh.id === selectedId ? { ...sh, strokeDash } as Shape : sh) }))
+    const { selectedIds } = get()
+    if (selectedIds.length) set((s) => ({ shapes: s.shapes.map(sh => selectedIds.includes(sh.id) ? { ...sh, strokeDash } as Shape : sh) }))
   },
   setOpacity: (opacity) => {
     set({ opacity })
-    const { selectedId } = get()
-    if (selectedId) set((s) => ({ shapes: s.shapes.map(sh => sh.id === selectedId ? { ...sh, opacity } as Shape : sh) }))
+    const { selectedIds } = get()
+    if (selectedIds.length) set((s) => ({ shapes: s.shapes.map(sh => selectedIds.includes(sh.id) ? { ...sh, opacity } as Shape : sh) }))
   },
-  setSelectedId: (selectedId) => set({ selectedId }),
+  setSelectedIds: (selectedIds) => set({ selectedIds }),
   setStageScale: (stageScale) => set({ stageScale }),
   setStagePos: (stagePos) => set({ stagePos }),
   setTextFontSize: (textFontSize) => set({ textFontSize }),
@@ -106,7 +107,14 @@ export const useStore = create<CanvasState & StoreActions>((set, get) => ({
 
   deleteShape: (id) => {
     get().snapshot()
-    set((s) => ({ shapes: s.shapes.filter((sh) => sh.id !== id), selectedId: null }))
+    set((s) => ({ shapes: s.shapes.filter((sh) => sh.id !== id), selectedIds: s.selectedIds.filter(sid => sid !== id) }))
+  },
+
+  deleteSelectedShapes: () => {
+    const { selectedIds } = get()
+    if (!selectedIds.length) return
+    get().snapshot()
+    set((s) => ({ shapes: s.shapes.filter((sh) => !s.selectedIds.includes(sh.id)), selectedIds: [] }))
   },
 
   setShapes: (shapes) => set({ shapes }),
@@ -127,6 +135,6 @@ export const useStore = create<CanvasState & StoreActions>((set, get) => ({
 
   clearCanvas: () => {
     get().snapshot()
-    set({ shapes: [], selectedId: null })
+    set({ shapes: [], selectedIds: [] })
   },
 }))

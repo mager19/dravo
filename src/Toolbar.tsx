@@ -6,28 +6,29 @@ import {
 import Konva from 'konva'
 import { useStore } from './store'
 import { T } from './i18n'
+import { Tooltip } from './Tooltip'
 import type { Tool } from './types'
 
 export function Toolbar({ onOpenJson }: { onOpenJson: () => void }) {
-  const { tool, setTool, undo, redo, clearCanvas, deleteShape, lang, setLang } = useStore()
+  const { tool, setTool, undo, redo, clearCanvas, deleteSelectedShapes, lang, setLang } = useStore()
   const t = T[lang]
 
-  const TOOLS: { tool: Tool; icon: React.ReactNode; title: string; mobileHide?: boolean }[] = [
-    { tool: 'select',    icon: <MousePointer2 size={18} />, title: t.tools.select },
-    { tool: 'rect',      icon: <Square size={18} />,        title: t.tools.rect },
-    { tool: 'ellipse',   icon: <Circle size={18} />,        title: t.tools.ellipse },
-    { tool: 'line',      icon: <Minus size={18} />,         title: t.tools.line,      mobileHide: true },
-    { tool: 'arrow',     icon: <ArrowRight size={18} />,    title: t.tools.arrow,     mobileHide: true },
-    { tool: 'freehand',  icon: <Pencil size={18} />,        title: t.tools.freehand },
-    { tool: 'text',      icon: <Type size={18} />,          title: t.tools.text },
-    { tool: 'connector', icon: <Network size={18} />,       title: t.tools.connector, mobileHide: true },
-    { tool: 'delete',    icon: <Trash2 size={18} />,        title: t.tools.delete,    mobileHide: true },
+  const TOOLS: { tool: Tool; icon: React.ReactNode; label: string; shortcut?: string; mobileHide?: boolean }[] = [
+    { tool: 'select',    icon: <MousePointer2 size={18} />, label: t.tools.select,    shortcut: 'V' },
+    { tool: 'rect',      icon: <Square size={18} />,        label: t.tools.rect,      shortcut: 'R' },
+    { tool: 'ellipse',   icon: <Circle size={18} />,        label: t.tools.ellipse,   shortcut: 'O' },
+    { tool: 'line',      icon: <Minus size={18} />,         label: t.tools.line,      shortcut: 'L',  mobileHide: true },
+    { tool: 'arrow',     icon: <ArrowRight size={18} />,    label: t.tools.arrow,     shortcut: 'A',  mobileHide: true },
+    { tool: 'freehand',  icon: <Pencil size={18} />,        label: t.tools.freehand,  shortcut: 'D' },
+    { tool: 'text',      icon: <Type size={18} />,          label: t.tools.text,      shortcut: 'T' },
+    { tool: 'connector', icon: <Network size={18} />,       label: t.tools.connector, shortcut: 'C',  mobileHide: true },
+    { tool: 'delete',    icon: <Trash2 size={18} />,        label: t.tools.delete,    mobileHide: true },
   ]
 
   const handleNew = () => {
     if (confirm(t.toolbar.confirmClear)) {
       clearCanvas()
-      localStorage.removeItem('linia:shapes')
+      localStorage.removeItem('dravo:shapes')
     }
   }
 
@@ -46,8 +47,8 @@ export function Toolbar({ onOpenJson }: { onOpenJson: () => void }) {
       const active = document.activeElement
       if (active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement) return
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        const { selectedId } = useStore.getState()
-        if (selectedId) { e.preventDefault(); deleteShape(selectedId) }
+        const { selectedIds } = useStore.getState()
+        if (selectedIds.length) { e.preventDefault(); deleteSelectedShapes() }
         return
       }
       if (e.metaKey || e.ctrlKey) {
@@ -60,50 +61,63 @@ export function Toolbar({ onOpenJson }: { onOpenJson: () => void }) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [setTool, undo, redo, deleteShape])
+  }, [setTool, undo, redo, deleteSelectedShapes])
 
   return (
     <div className="w-full sm:w-auto overflow-x-auto sm:overflow-visible scrollbar-none flex items-center gap-1 bg-[#22242f] border border-[#3a3d4d] rounded-xl px-2 py-1.5 shadow-xl">
       <img src="/logo.svg" className="h-6 sm:h-7 w-auto mr-1 opacity-90 shrink-0" alt="Dravo" />
 
-      {TOOLS.map(({ tool: t, icon, title, mobileHide }) => (
-        <button
-          key={t}
-          title={title}
-          onClick={() => setTool(t)}
-          className={`shrink-0 p-2.5 sm:p-2 rounded-lg transition-colors ${mobileHide ? 'hidden sm:flex' : 'flex'} items-center justify-center ${
-            tool === t ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-[#2e3144]'
-          }`}
-        >
-          {icon}
-        </button>
+      {TOOLS.map(({ tool: t_, icon, label, shortcut, mobileHide }) => (
+        <Tooltip key={t_} label={label} shortcut={shortcut}>
+          <button
+            onClick={() => setTool(t_)}
+            className={`shrink-0 p-2.5 sm:p-2 rounded-lg transition-colors ${mobileHide ? 'hidden sm:flex' : 'flex'} items-center justify-center ${
+              tool === t_ ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-[#2e3144]'
+            }`}
+          >
+            {icon}
+          </button>
+        </Tooltip>
       ))}
 
       <div className="w-px h-6 bg-[#3a3d4d] mx-1 shrink-0" />
 
-      <button title={t.toolbar.newCanvas} onClick={handleNew}
-        className="shrink-0 hidden sm:flex items-center justify-center p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2e3144] transition-colors">
-        <FilePlus size={18} />
-      </button>
-      <button title={t.toolbar.exportPng} onClick={handleExport}
-        className="shrink-0 p-2.5 sm:p-2 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-[#2e3144] transition-colors">
-        <Download size={18} />
-      </button>
-      <button title={t.toolbar.exportJson} onClick={onOpenJson}
-        className="shrink-0 hidden sm:flex items-center justify-center p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2e3144] transition-colors">
-        <Braces size={18} />
-      </button>
+      <Tooltip label={t.toolbar.newCanvas}>
+        <button onClick={handleNew}
+          className="shrink-0 hidden sm:flex items-center justify-center p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2e3144] transition-colors">
+          <FilePlus size={18} />
+        </button>
+      </Tooltip>
+
+      <Tooltip label={t.toolbar.exportPng}>
+        <button onClick={handleExport}
+          className="shrink-0 p-2.5 sm:p-2 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-[#2e3144] transition-colors">
+          <Download size={18} />
+        </button>
+      </Tooltip>
+
+      <Tooltip label={t.toolbar.exportJson}>
+        <button onClick={onOpenJson}
+          className="shrink-0 hidden sm:flex items-center justify-center p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2e3144] transition-colors">
+          <Braces size={18} />
+        </button>
+      </Tooltip>
 
       <div className="w-px h-6 bg-[#3a3d4d] mx-1 shrink-0" />
 
-      <button title={t.toolbar.undo} onClick={undo}
-        className="shrink-0 p-2.5 sm:p-2 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-[#2e3144] transition-colors">
-        <Undo2 size={18} />
-      </button>
-      <button title={t.toolbar.redo} onClick={redo}
-        className="shrink-0 p-2.5 sm:p-2 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-[#2e3144] transition-colors">
-        <Redo2 size={18} />
-      </button>
+      <Tooltip label={t.toolbar.undo} shortcut="⌘Z">
+        <button onClick={undo}
+          className="shrink-0 p-2.5 sm:p-2 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-[#2e3144] transition-colors">
+          <Undo2 size={18} />
+        </button>
+      </Tooltip>
+
+      <Tooltip label={t.toolbar.redo} shortcut="⌘⇧Z">
+        <button onClick={redo}
+          className="shrink-0 p-2.5 sm:p-2 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-[#2e3144] transition-colors">
+          <Redo2 size={18} />
+        </button>
+      </Tooltip>
 
       <div className="w-px h-6 bg-[#3a3d4d] mx-1 shrink-0" />
 

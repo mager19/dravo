@@ -1,7 +1,7 @@
 import { useStore } from './store'
 import type { Shape } from './types'
 
-const KEY = 'linia:shapes'
+const KEY = 'dravo:shapes'
 let timer: ReturnType<typeof setTimeout> | null = null
 
 export function loadFromStorage() {

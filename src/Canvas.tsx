@@ -14,22 +14,48 @@ const DASH_MAP: Record<StrokeDash, number[]> = {
 }
 import { getAnchorPos, getShapeAnchors, findNearestAnchor, findHoveredConnectable } from './anchors'
 
+// Helper: get bounding box of a shape in world coordinates
+function getShapeBounds(shape: Shape): { x: number; y: number; w: number; h: number } | null {
+  if (shape.type === 'rect') return { x: shape.x, y: shape.y, w: Math.abs(shape.width), h: Math.abs(shape.height) }
+  if (shape.type === 'ellipse') return { x: shape.x - shape.radiusX, y: shape.y - shape.radiusY, w: shape.radiusX * 2, h: shape.radiusY * 2 }
+  if (shape.type === 'line' || shape.type === 'arrow') {
+    const [x1, y1, x2, y2] = shape.points
+    return { x: Math.min(x1, x2), y: Math.min(y1, y2), w: Math.abs(x2 - x1), h: Math.abs(y2 - y1) }
+  }
+  if (shape.type === 'text') return { x: shape.x, y: shape.y, w: 200, h: shape.fontSize * 1.5 }
+  if (shape.type === 'freehand') {
+    const xs = shape.points.map(p => p[0])
+    const ys = shape.points.map(p => p[1])
+    return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) }
+  }
+  return null
+}
 
-function ConnectorNode({ shape, shapes, isSelected, onSelect }: {
+// Helper: check if two rects intersect (handles negative w/h from rubber band)
+function rectsIntersect(
+  a: { x: number; y: number; w: number; h: number },
+  b: { x: number; y: number; w: number; h: number }
+): boolean {
+  const ax1 = Math.min(a.x, a.x + a.w), ax2 = Math.max(a.x, a.x + a.w)
+  const ay1 = Math.min(a.y, a.y + a.h), ay2 = Math.max(a.y, a.y + a.h)
+  const bx1 = Math.min(b.x, b.x + b.w), bx2 = Math.max(b.x, b.x + b.w)
+  const by1 = Math.min(b.y, b.y + b.h), by2 = Math.max(b.y, b.y + b.h)
+  return ax1 < bx2 && ax2 > bx1 && ay1 < by2 && ay2 > by1
+}
+
+function ConnectorNode({ shape, shapes, isSelected: _isSelected, onSelect, onRegister }: {
   shape: ConnectorShape
   shapes: Shape[]
   isSelected: boolean
   onSelect: () => void
+  onRegister: (id: string, node: Konva.Node | null) => void
 }) {
   const arrowRef = useRef<Konva.Arrow>(null)
-  const trRef = useRef<Konva.Transformer>(null)
 
   useEffect(() => {
-    if (isSelected && trRef.current && arrowRef.current) {
-      trRef.current.nodes([arrowRef.current])
-      trRef.current.getLayer()?.batchDraw()
-    }
-  }, [isSelected])
+    onRegister(shape.id, arrowRef.current)
+    return () => onRegister(shape.id, null)
+  }, [shape.id, onRegister])
 
   const startShape = shape.start.shapeId ? shapes.find(s => s.id === shape.start.shapeId) : null
   const endShape = shape.end.shapeId ? shapes.find(s => s.id === shape.end.shapeId) : null
@@ -60,34 +86,23 @@ function ConnectorNode({ shape, shapes, isSelected, onSelect }: {
       {/* endpoint dots */}
       <Circle x={sp.x} y={sp.y} radius={4} fill={shape.strokeColor} listening={false} />
       <Circle x={ep.x} y={ep.y} radius={4} fill={shape.strokeColor} listening={false} />
-      {isSelected && (
-        <Transformer
-          ref={trRef}
-          rotateEnabled={false}
-          resizeEnabled={false}
-          borderStroke="#3b82f6"
-          borderDash={[4, 4]}
-        />
-      )}
     </>
   )
 }
 
-function ShapeNode({ shape, isSelected, onSelect, onChange }: {
+function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegister }: {
   shape: Shape
   isSelected: boolean
-  onSelect: () => void
+  onSelect: (e: Konva.KonvaEventObject<MouseEvent>) => void
   onChange: (patch: Partial<Shape>) => void
+  onRegister: (id: string, node: Konva.Node | null) => void
 }) {
   const shapeRef = useRef<Konva.Node>(null)
-  const trRef = useRef<Konva.Transformer>(null)
 
   useEffect(() => {
-    if (isSelected && trRef.current && shapeRef.current) {
-      trRef.current.nodes([shapeRef.current])
-      trRef.current.getLayer()?.batchDraw()
-    }
-  }, [isSelected])
+    onRegister(shape.id, shapeRef.current)
+    return () => onRegister(shape.id, null)
+  }, [shape.id, onRegister])
 
   const dashArray = DASH_MAP[shape.strokeDash] ?? []
   const common = {
@@ -97,7 +112,7 @@ function ShapeNode({ shape, isSelected, onSelect, onChange }: {
     opacity: shape.opacity,
     draggable: true,
     onClick: onSelect,
-    onTap: onSelect,
+    onTap: () => onSelect({} as Konva.KonvaEventObject<MouseEvent>),
     onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => {
       onChange({ x: e.target.x(), y: e.target.y() } as Partial<Shape>)
     },
@@ -205,28 +220,21 @@ function ShapeNode({ shape, isSelected, onSelect, onChange }: {
 
   if (!node) return null
 
-  return (
-    <>
-      {node}
-      {isSelected && (
-        <Transformer
-          ref={trRef}
-          boundBoxFunc={(oldBox, newBox) => (newBox.width < 5 || newBox.height < 5 ? oldBox : newBox)}
-        />
-      )}
-    </>
-  )
+  return <>{node}</>
 }
 
 export function Canvas() {
   const stageRef = useRef<Konva.Stage>(null)
+  const transformerRef = useRef<Konva.Transformer>(null)
+  const shapeNodeRefs = useRef<Map<string, Konva.Node>>(new Map())
+
   const {
-    shapes, selectedId, tool,
+    shapes, selectedIds, tool,
     strokeColor, fillColor, strokeWidth, strokeDash, opacity,
     stageScale, stagePos,
     textFontSize, textFontFamily, textBold, textItalic,
-    setSelectedId, setStageScale, setStagePos, setTool,
-    addShape, updateShape, deleteShape,
+    setSelectedIds, setStageScale, setStagePos, setTool,
+    addShape, updateShape, deleteShape, deleteSelectedShapes,
   } = useStore()
 
   const [drawing, setDrawing] = useState(false)
@@ -238,6 +246,10 @@ export function Canvas() {
   const textInputRef = useRef(textInput)
   useEffect(() => { textInputRef.current = textInput }, [textInput])
 
+  // Rubber band selection state
+  const selStartPos = useRef<Point | null>(null)
+  const [selBox, setSelBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null)
+
   // Connector state
   const [nearShapeId, setNearShapeId] = useState<string | null>(null)
   const [snapAnchor, setSnapAnchor] = useState<{ shapeId: string; anchor: AnchorSide; pos: Point } | null>(null)
@@ -245,6 +257,26 @@ export function Canvas() {
   const [connStart, setConnStart] = useState<ConnStart | null>(null)
   const connStartRef = useRef<ConnStart | null>(null)
   const [connDraftEnd, setConnDraftEnd] = useState<Point | null>(null)
+
+  // Register/unregister shape nodes for the Transformer
+  const registerRef = useCallback((id: string, node: Konva.Node | null) => {
+    if (node) {
+      shapeNodeRefs.current.set(id, node)
+    } else {
+      shapeNodeRefs.current.delete(id)
+    }
+  }, [])
+
+  // Sync Transformer nodes when selectedIds changes
+  useEffect(() => {
+    const tr = transformerRef.current
+    if (!tr) return
+    const nodes = selectedIds
+      .map(id => shapeNodeRefs.current.get(id))
+      .filter((n): n is Konva.Node => Boolean(n))
+    tr.nodes(nodes)
+    tr.getLayer()?.batchDraw()
+  }, [selectedIds])
 
   useEffect(() => {
     const container = stageRef.current?.container()
@@ -299,7 +331,11 @@ export function Canvas() {
     if (textInputRef.current) return
 
     if (tool === 'select') {
-      if (e.target === stageRef.current) setSelectedId(null)
+      if (e.target === stageRef.current) {
+        // Click on empty canvas: deselect and start rubber band
+        setSelectedIds([])
+        selStartPos.current = getPointerPos()
+      }
       return
     }
     if (tool === 'delete') return
@@ -342,7 +378,7 @@ export function Canvas() {
     } else if (tool === 'freehand') {
       addShape({ ...base, type: 'freehand', points: [[pos.x, pos.y, 0.5]] } as FreehandShape)
     }
-  }, [tool, strokeColor, fillColor, strokeWidth, strokeDash, opacity, stageScale, getPointerPos, addShape, setSelectedId, setConnStart, setConnDraftEnd])
+  }, [tool, strokeColor, fillColor, strokeWidth, strokeDash, opacity, stageScale, getPointerPos, addShape, setSelectedIds, setConnStart, setConnDraftEnd])
 
   const handleMouseMove = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
     if (isPanning.current) {
@@ -362,6 +398,18 @@ export function Canvas() {
       const snap = findNearestAnchor(currentShapes, pos, snapThreshold)
       setSnapAnchor(snap)
       if (connStart) setConnDraftEnd(snap ? snap.pos : pos)
+      return
+    }
+
+    // Rubber band selection
+    if (tool === 'select' && selStartPos.current && !drawing) {
+      const pos = getPointerPos()
+      setSelBox({
+        x: selStartPos.current.x,
+        y: selStartPos.current.y,
+        w: pos.x - selStartPos.current.x,
+        h: pos.y - selStartPos.current.y,
+      })
       return
     }
 
@@ -418,6 +466,25 @@ export function Canvas() {
       return
     }
 
+    // Rubber band: finalize selection
+    if (tool === 'select' && selStartPos.current) {
+      const currentSelBox = selBox
+      if (currentSelBox && (Math.abs(currentSelBox.w) > 4 || Math.abs(currentSelBox.h) > 4)) {
+        const currentShapes = useStore.getState().shapes
+        const selected = currentShapes.filter(shape => {
+          const bounds = getShapeBounds(shape)
+          if (!bounds) return false
+          return rectsIntersect(bounds, currentSelBox)
+        })
+        if (selected.length > 0) {
+          setSelectedIds(selected.map(s => s.id))
+        }
+      }
+      selStartPos.current = null
+      setSelBox(null)
+      return
+    }
+
     if (!drawing) return
     setDrawing(false)
     const shape = useStore.getState().shapes.find(s => s.id === draftId)
@@ -429,13 +496,17 @@ export function Canvas() {
       }
     }
     setDraftId(null)
-  }, [drawing, draftId, deleteShape, getPointerPos, stageScale, addShape, strokeColor, strokeWidth, setTool])
+  }, [drawing, draftId, deleteShape, getPointerPos, stageScale, addShape, strokeColor, strokeWidth, setTool, tool, selBox, setSelectedIds])
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (document.activeElement instanceof HTMLTextAreaElement) return
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
-        deleteShape(selectedId)
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        const { selectedIds } = useStore.getState()
+        if (selectedIds.length) {
+          e.preventDefault()
+          deleteSelectedShapes()
+        }
       }
       if (e.key === 'Escape' && connStartRef.current) {
         connStartRef.current = null
@@ -445,7 +516,7 @@ export function Canvas() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [selectedId, deleteShape, setConnStart, setConnDraftEnd])
+  }, [deleteSelectedShapes, setConnStart, setConnDraftEnd])
 
   const commitText = useCallback((value: string, switchToSelect = false) => {
     if (textInput && value.trim()) {
@@ -495,22 +566,36 @@ export function Canvas() {
                 key={shape.id}
                 shape={shape}
                 shapes={shapes}
-                isSelected={selectedId === shape.id}
+                isSelected={selectedIds.includes(shape.id)}
                 onSelect={() => {
                   if (tool === 'delete') { deleteShape(shape.id); return }
-                  if (tool === 'select') setSelectedId(shape.id)
+                  if (tool === 'select') setSelectedIds([shape.id])
                 }}
+                onRegister={registerRef}
               />
             ) : (
               <ShapeNode
                 key={shape.id}
                 shape={shape}
-                isSelected={selectedId === shape.id}
-                onSelect={() => {
+                isSelected={selectedIds.includes(shape.id)}
+                onSelect={(e: Konva.KonvaEventObject<MouseEvent>) => {
                   if (tool === 'delete') { deleteShape(shape.id); return }
-                  if (tool === 'select') setSelectedId(shape.id)
+                  if (tool === 'select') {
+                    if (e.evt.shiftKey) {
+                      // Toggle shape in selection
+                      const current = useStore.getState().selectedIds
+                      if (current.includes(shape.id)) {
+                        setSelectedIds(current.filter(id => id !== shape.id))
+                      } else {
+                        setSelectedIds([...current, shape.id])
+                      }
+                    } else {
+                      setSelectedIds([shape.id])
+                    }
+                  }
                 }}
                 onChange={(patch) => updateShape(shape.id, patch)}
+                onRegister={registerRef}
               />
             )
           )}
@@ -535,7 +620,7 @@ export function Canvas() {
             })
           })()}
 
-          {/* Línea draft mientras se dibuja un conector */}
+          {/* Linea draft mientras se dibuja un conector */}
           {connStart && connDraftEnd && (
             <Arrow
               points={[connStart.pos.x, connStart.pos.y, connDraftEnd.x, connDraftEnd.y]}
@@ -549,6 +634,27 @@ export function Canvas() {
               opacity={0.7}
             />
           )}
+
+          {/* Rubber band selection rect */}
+          {selBox && (
+            <Rect
+              x={selBox.x}
+              y={selBox.y}
+              width={selBox.w}
+              height={selBox.h}
+              stroke="#3b82f6"
+              strokeWidth={1 / stageScale}
+              dash={[4 / stageScale, 4 / stageScale]}
+              fill="rgba(59,130,246,0.08)"
+              listening={false}
+            />
+          )}
+
+          {/* Global Transformer */}
+          <Transformer
+            ref={transformerRef}
+            boundBoxFunc={(oldBox, newBox) => (newBox.width < 5 || newBox.height < 5 ? oldBox : newBox)}
+          />
         </Layer>
       </Stage>
 

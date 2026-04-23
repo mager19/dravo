@@ -89,7 +89,7 @@ export type { Lang }
 export interface CanvasState {
   lang: Lang
   shapes: Shape[]
-  selectedId: string | null
+  selectedIds: string[]
   tool: Tool
   strokeColor: string
   fillColor: string

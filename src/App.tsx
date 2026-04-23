@@ -11,7 +11,7 @@ import type { TextShape } from './types'
 
 function App() {
   const {
-    tool, selectedId, shapes,
+    tool, selectedIds, shapes,
     setStrokeColor, setFillColor, setStrokeWidth, setStrokeDash, setOpacity,
     setTextFontSize, setTextFontFamily, setTextBold, setTextItalic,
   } = useStore()
@@ -24,7 +24,7 @@ function App() {
     setShowWelcome(false)
   }
 
-  const selectedShape = selectedId ? shapes.find(s => s.id === selectedId) : undefined
+  const selectedShape = selectedIds.length === 1 ? shapes.find(s => s.id === selectedIds[0]) : undefined
   const isTextSelected = selectedShape?.type === 'text'
   const showTextOptions = tool === 'text' || isTextSelected
 
@@ -42,7 +42,7 @@ function App() {
       setTextBold(t.bold)
       setTextItalic(t.italic)
     }
-  }, [selectedId])
+  }, [selectedIds[0]])
 
   return (
     <div className="w-full h-full relative overflow-hidden">
