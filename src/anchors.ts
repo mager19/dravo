@@ -2,23 +2,52 @@ import type { Shape, AnchorSide, Point } from './types'
 
 export const ANCHOR_SIDES: AnchorSide[] = ['n', 's', 'e', 'w', 'center']
 
+// Apply a Group's transform (rotate around local origin, then translate to world)
+function applyTransform(local: Point, gx: number, gy: number, angleDeg: number): Point {
+  if (!angleDeg) return { x: gx + local.x, y: gy + local.y }
+  const rad = (angleDeg * Math.PI) / 180
+  const cos = Math.cos(rad)
+  const sin = Math.sin(rad)
+  return {
+    x: gx + local.x * cos - local.y * sin,
+    y: gy + local.x * sin + local.y * cos,
+  }
+}
+
+// Inverse: transform a world point into a Group's local space
+function inverseTransform(world: Point, gx: number, gy: number, angleDeg: number): Point {
+  const dx = world.x - gx
+  const dy = world.y - gy
+  if (!angleDeg) return { x: dx, y: dy }
+  const rad = -(angleDeg * Math.PI) / 180
+  const cos = Math.cos(rad)
+  const sin = Math.sin(rad)
+  return { x: dx * cos - dy * sin, y: dx * sin + dy * cos }
+}
+
 export function getAnchorPos(shape: Shape, anchor: AnchorSide): Point {
   switch (shape.type) {
     case 'rect': {
-      const cx = shape.x + shape.width / 2
-      const cy = shape.y + shape.height / 2
-      if (anchor === 'n') return { x: cx, y: shape.y }
-      if (anchor === 's') return { x: cx, y: shape.y + shape.height }
-      if (anchor === 'e') return { x: shape.x + shape.width, y: cy }
-      if (anchor === 'w') return { x: shape.x, y: cy }
-      return { x: cx, y: cy }
+      const lx = shape.width < 0 ? shape.width : 0
+      const ly = shape.height < 0 ? shape.height : 0
+      const lw = Math.abs(shape.width)
+      const lh = Math.abs(shape.height)
+      const local: Point =
+        anchor === 'n' ? { x: lx + lw / 2, y: ly } :
+        anchor === 's' ? { x: lx + lw / 2, y: ly + lh } :
+        anchor === 'e' ? { x: lx + lw, y: ly + lh / 2 } :
+        anchor === 'w' ? { x: lx, y: ly + lh / 2 } :
+                         { x: lx + lw / 2, y: ly + lh / 2 }
+      return applyTransform(local, shape.x, shape.y, shape.rotation ?? 0)
     }
     case 'ellipse': {
-      if (anchor === 'n') return { x: shape.x, y: shape.y - shape.radiusY }
-      if (anchor === 's') return { x: shape.x, y: shape.y + shape.radiusY }
-      if (anchor === 'e') return { x: shape.x + shape.radiusX, y: shape.y }
-      if (anchor === 'w') return { x: shape.x - shape.radiusX, y: shape.y }
-      return { x: shape.x, y: shape.y }
+      const local: Point =
+        anchor === 'n' ? { x: 0, y: -shape.radiusY } :
+        anchor === 's' ? { x: 0, y: shape.radiusY } :
+        anchor === 'e' ? { x: shape.radiusX, y: 0 } :
+        anchor === 'w' ? { x: -shape.radiusX, y: 0 } :
+                         { x: 0, y: 0 }
+      return applyTransform(local, shape.x, shape.y, shape.rotation ?? 0)
     }
     case 'text': {
       const w = shape.text.length * (shape.fontSize * 0.55)
@@ -43,12 +72,19 @@ export function getShapeAnchors(shape: Shape): Array<{ anchor: AnchorSide; pos: 
 
 export function isPointNearShape(shape: Shape, point: Point, padding: number): boolean {
   switch (shape.type) {
-    case 'rect':
-      return point.x >= shape.x - padding && point.x <= shape.x + shape.width + padding
-          && point.y >= shape.y - padding && point.y <= shape.y + shape.height + padding
+    case 'rect': {
+      const local = inverseTransform(point, shape.x, shape.y, shape.rotation ?? 0)
+      const lx = shape.width < 0 ? shape.width : 0
+      const ly = shape.height < 0 ? shape.height : 0
+      const lw = Math.abs(shape.width)
+      const lh = Math.abs(shape.height)
+      return local.x >= lx - padding && local.x <= lx + lw + padding
+          && local.y >= ly - padding && local.y <= ly + lh + padding
+    }
     case 'ellipse': {
-      const dx = (point.x - shape.x) / (shape.radiusX + padding)
-      const dy = (point.y - shape.y) / (shape.radiusY + padding)
+      const local = inverseTransform(point, shape.x, shape.y, shape.rotation ?? 0)
+      const dx = local.x / (shape.radiusX + padding)
+      const dy = local.y / (shape.radiusY + padding)
       return dx * dx + dy * dy <= 1
     }
     case 'text': {

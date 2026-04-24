@@ -151,6 +151,7 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
   onDblClick?: () => void
 }) {
   const shapeRef = useRef<Konva.Node>(null)
+  const tool = useStore(s => s.tool)
 
   useEffect(() => {
     onRegister(shape.id, shapeRef.current)
@@ -163,7 +164,7 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
     strokeWidth: shape.strokeWidth,
     dash: dashArray.length ? dashArray : undefined,
     opacity: shape.opacity,
-    draggable: true,
+    draggable: tool === 'select',
     onClick: onSelect,
     onTap: () => onSelect({} as Konva.KonvaEventObject<MouseEvent>),
     onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => {
@@ -182,14 +183,15 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
       <Group
         ref={shapeRef as React.RefObject<Konva.Group>}
         x={shape.x} y={shape.y}
-        draggable opacity={shape.opacity}
+        draggable={tool === 'select'} opacity={shape.opacity}
         onClick={onSelect}
         onTap={() => onSelect({} as Konva.KonvaEventObject<MouseEvent>)}
         onDblClick={onDblClick}
         onDragEnd={(e: Konva.KonvaEventObject<DragEvent>) => onChange({ x: e.target.x(), y: e.target.y() } as Partial<Shape>)}
+        rotation={shape.rotation ?? 0}
         onTransformEnd={() => {
           const g = shapeRef.current as Konva.Group
-          onChange({ x: g.x(), y: g.y(), width: Math.max(1, shape.width * g.scaleX()), height: Math.max(1, shape.height * g.scaleY()) } as Partial<Shape>)
+          onChange({ x: g.x(), y: g.y(), rotation: g.rotation(), width: Math.max(1, shape.width * g.scaleX()), height: Math.max(1, shape.height * g.scaleY()) } as Partial<Shape>)
           g.scaleX(1); g.scaleY(1)
         }}
       >
@@ -220,14 +222,15 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
       <Group
         ref={shapeRef as React.RefObject<Konva.Group>}
         x={shape.x} y={shape.y}
-        draggable opacity={shape.opacity}
+        draggable={tool === 'select'} opacity={shape.opacity}
         onClick={onSelect}
         onTap={() => onSelect({} as Konva.KonvaEventObject<MouseEvent>)}
         onDblClick={onDblClick}
         onDragEnd={(e: Konva.KonvaEventObject<DragEvent>) => onChange({ x: e.target.x(), y: e.target.y() } as Partial<Shape>)}
+        rotation={shape.rotation ?? 0}
         onTransformEnd={() => {
           const g = shapeRef.current as Konva.Group
-          onChange({ x: g.x(), y: g.y(), radiusX: Math.max(1, shape.radiusX * g.scaleX()), radiusY: Math.max(1, shape.radiusY * g.scaleY()) } as Partial<Shape>)
+          onChange({ x: g.x(), y: g.y(), rotation: g.rotation(), radiusX: Math.max(1, shape.radiusX * g.scaleX()), radiusY: Math.max(1, shape.radiusY * g.scaleY()) } as Partial<Shape>)
           g.scaleX(1); g.scaleY(1)
         }}
       >
@@ -314,6 +317,16 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
           for (let i = 1; i < stroke.length; i++) ctx.lineTo(stroke[i][0], stroke[i][1])
           ctx.closePath()
           ctx.fillStrokeShape(sh)
+        }}
+        hitFunc={(ctx) => {
+          if (!shape.points.length) return
+          const raw = (ctx as any)._context as CanvasRenderingContext2D
+          raw.beginPath()
+          raw.moveTo(shape.points[0][0], shape.points[0][1])
+          for (let i = 1; i < shape.points.length; i++) raw.lineTo(shape.points[i][0], shape.points[i][1])
+          raw.lineWidth = 20
+          raw.strokeStyle = '#000'
+          raw.stroke()
         }}
         fill={shape.strokeColor}
         stroke="transparent"
@@ -669,9 +682,12 @@ export function Canvas() {
     setDrawing(false)
     const shape = useStore.getState().shapes.find(s => s.id === draftId)
     if (shape) {
-      if (shape.type === 'rect' && Math.abs(shape.width) < 3 && Math.abs(shape.height) < 3) {
+      const MIN = 20
+      if (shape.type === 'rect' && Math.abs(shape.width) < MIN && Math.abs(shape.height) < MIN) {
         deleteShape(draftId!)
-      } else if (shape.type === 'ellipse' && shape.radiusX < 2 && shape.radiusY < 2) {
+      } else if (shape.type === 'ellipse' && shape.radiusX < MIN / 2 && shape.radiusY < MIN / 2) {
+        deleteShape(draftId!)
+      } else if ((shape.type === 'line' || shape.type === 'arrow') && Math.hypot(shape.points[2] - shape.points[0], shape.points[3] - shape.points[1]) < MIN) {
         deleteShape(draftId!)
       }
     }

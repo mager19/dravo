@@ -25,6 +25,7 @@ interface ShapeBase {
   strokeDash: StrokeDash
   opacity: number
   rough?: boolean
+  rotation?: number
 }
 
 export interface RectShape extends ShapeBase {
