@@ -94,7 +94,7 @@ const INITIAL_STATE: CanvasState = {
   textItalic: false,
   isLabelEditing: false,
   roughEnabled: false,
-  gridEnabled: true,
+  gridEnabled: false,
   lang: (localStorage.getItem('dravo:lang') as Lang | null) ?? 'es',
 }
 

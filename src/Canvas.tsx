@@ -119,7 +119,6 @@ function GridLayer({ stageScale, stagePos }: { stageScale: number; stagePos: Poi
         sceneFunc={(ctx) => {
           const raw = (ctx as any)._context as CanvasRenderingContext2D
           raw.save()
-          raw.globalAlpha = 0.4
           raw.strokeStyle = '#2a2d3a'
           raw.lineWidth = lw
           raw.beginPath()
