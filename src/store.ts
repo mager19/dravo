@@ -72,6 +72,7 @@ interface StoreActions {
 
   setGridEnabled: (v: boolean) => void
   clearCanvas: () => void
+  moveSelectedShapes: (dx: number, dy: number) => void
 }
 
 const INITIAL_STATE: CanvasState = {
@@ -213,6 +214,35 @@ export const useStore = create<CanvasState & StoreActions>((set, get) => ({
   },
 
   setGridEnabled: (gridEnabled) => set({ gridEnabled }),
+
+  moveSelectedShapes: (dx, dy) => {
+    const { selectedIds } = get()
+    if (!selectedIds.length) return
+    get().snapshot()
+    set((s) => ({
+      shapes: s.shapes.map((sh) => {
+        if (!selectedIds.includes(sh.id)) return sh
+        if (sh.type === 'rect' || sh.type === 'ellipse' || sh.type === 'text')
+          return { ...sh, x: sh.x + dx, y: sh.y + dy }
+        if (sh.type === 'line' || sh.type === 'arrow')
+          return { ...sh, points: sh.points.map((v, i) => v + (i % 2 === 0 ? dx : dy)) }
+        if (sh.type === 'freehand')
+          return { ...sh, points: sh.points.map(([x, y, p]) => [x + dx, y + dy, p]) }
+        if (sh.type === 'connector') {
+          const conn = sh
+          return {
+            ...conn,
+            start: { ...conn.start, x: conn.start.x + dx, y: conn.start.y + dy },
+            end: { ...conn.end, x: conn.end.x + dx, y: conn.end.y + dy },
+            controlPoint: conn.controlPoint
+              ? { x: conn.controlPoint.x + dx, y: conn.controlPoint.y + dy }
+              : undefined,
+          }
+        }
+        return sh
+      }),
+    }))
+  },
 
   clearCanvas: () => {
     get().snapshot()

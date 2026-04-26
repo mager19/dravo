@@ -17,7 +17,7 @@ export function Toolbar({ onOpenJson, onOpenHelp, onOpenLayers, layersOpen, opti
   optionsOpen: boolean
   onToggleOptions: () => void
 }) {
-  const { tool, setTool, undo, redo, clearCanvas, deleteSelectedShapes, copySelected, paste, duplicate, lang, setLang, gridEnabled, setGridEnabled } = useStore()
+  const { tool, setTool, undo, redo, clearCanvas, deleteSelectedShapes, copySelected, paste, duplicate, lang, setLang, gridEnabled, setGridEnabled, moveSelectedShapes } = useStore()
   const t = T[lang]
 
   const TOOLS: { tool: Tool; icon: React.ReactNode; label: string; shortcut?: string; mobileHide?: boolean }[] = [
@@ -61,6 +61,17 @@ export function Toolbar({ onOpenJson, onOpenHelp, onOpenLayers, layersOpen, opti
         if (selectedIds.length) { e.preventDefault(); deleteSelectedShapes() }
         return
       }
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        const { selectedIds, gridEnabled: ge } = useStore.getState()
+        if (!selectedIds.length) return
+        e.preventDefault()
+        const base = ge ? 20 : 1
+        const step = e.shiftKey ? base * 5 : base
+        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
+        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
+        moveSelectedShapes(dx, dy)
+        return
+      }
       if (e.metaKey || e.ctrlKey) {
         if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return }
         if ((e.key === 'z' && e.shiftKey) || e.key === 'y') { e.preventDefault(); redo(); return }
@@ -76,7 +87,7 @@ export function Toolbar({ onOpenJson, onOpenHelp, onOpenLayers, layersOpen, opti
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [setTool, undo, redo, deleteSelectedShapes, copySelected, paste, duplicate])
+  }, [setTool, undo, redo, deleteSelectedShapes, copySelected, paste, duplicate, moveSelectedShapes])
 
   return (
     <div className="w-full sm:w-auto overflow-x-auto sm:overflow-visible scrollbar-none flex items-center gap-1 bg-[#22242f] border border-[#3a3d4d] rounded-xl px-2 py-1.5 shadow-xl">
