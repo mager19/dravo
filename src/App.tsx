@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Canvas } from './Canvas'
 import { Toolbar } from './Toolbar'
-import { ColorPicker } from './ColorPicker'
 import { StatusBar } from './StatusBar'
-import { TextOptions } from './TextOptions'
 import { ImportExportModal } from './ImportExportModal'
 import { WelcomeModal } from './WelcomeModal'
+import { LayersPanel } from './LayersPanel'
+import { ColorPicker } from './ColorPicker'
+import { TextOptions } from './TextOptions'
+import { ConnectorOptions } from './ConnectorOptions'
 import { useStore } from './store'
 import type { TextShape } from './types'
 
@@ -18,6 +20,8 @@ function App() {
 
   const [showJson, setShowJson] = useState(false)
   const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem('dravo:welcomed'))
+  const [showLayers, setShowLayers] = useState(false)
+  const [showOptions, setShowOptions] = useState(true)
 
   const handleCloseWelcome = () => {
     localStorage.setItem('dravo:welcomed', '1')
@@ -27,6 +31,7 @@ function App() {
   const selectedShape = selectedIds.length === 1 ? shapes.find(s => s.id === selectedIds[0]) : undefined
   const isTextSelected = selectedShape?.type === 'text'
   const showTextOptions = tool === 'text' || isTextSelected || isLabelEditing
+  const showConnectorOptions = !!(selectedShape?.type === 'connector')
 
   useEffect(() => {
     if (!selectedShape) return
@@ -49,11 +54,20 @@ function App() {
     <div className="w-full h-full relative overflow-hidden">
       <Canvas />
       <div className="absolute bottom-4 sm:bottom-6 left-2 right-2 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-10 flex flex-col items-center gap-2">
-        {showTextOptions && <TextOptions />}
-        <Toolbar onOpenJson={() => setShowJson(true)} onOpenHelp={() => setShowWelcome(true)} />
-        <ColorPicker />
+        {showOptions && showTextOptions && <TextOptions />}
+        {showOptions && showConnectorOptions && <ConnectorOptions />}
+        <Toolbar
+          onOpenJson={() => setShowJson(true)}
+          onOpenHelp={() => setShowWelcome(true)}
+          onOpenLayers={() => setShowLayers(v => !v)}
+          layersOpen={showLayers}
+          optionsOpen={showOptions}
+          onToggleOptions={() => setShowOptions(v => !v)}
+        />
+        {showOptions && <ColorPicker />}
       </div>
       <StatusBar />
+      {showLayers && <LayersPanel onClose={() => setShowLayers(false)} />}
       {showJson && <ImportExportModal onClose={() => setShowJson(false)} />}
       {showWelcome && <WelcomeModal onClose={handleCloseWelcome} />}
     </div>

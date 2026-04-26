@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import {
   MousePointer2, Square, Circle, Minus, ArrowRight,
-  Pencil, Type, Trash2, Undo2, Redo2, FilePlus, Network, Download, Braces, HelpCircle,
+  Pencil, Type, Trash2, Undo2, Redo2, FilePlus, Network, Download, Braces, HelpCircle, Layers, SlidersHorizontal,
 } from 'lucide-react'
 import Konva from 'konva'
 import { useStore } from './store'
@@ -9,8 +9,15 @@ import { T } from './i18n'
 import { Tooltip } from './Tooltip'
 import type { Tool } from './types'
 
-export function Toolbar({ onOpenJson, onOpenHelp }: { onOpenJson: () => void; onOpenHelp: () => void }) {
-  const { tool, setTool, undo, redo, clearCanvas, deleteSelectedShapes, lang, setLang } = useStore()
+export function Toolbar({ onOpenJson, onOpenHelp, onOpenLayers, layersOpen, optionsOpen, onToggleOptions }: {
+  onOpenJson: () => void
+  onOpenHelp: () => void
+  onOpenLayers: () => void
+  layersOpen: boolean
+  optionsOpen: boolean
+  onToggleOptions: () => void
+}) {
+  const { tool, setTool, undo, redo, clearCanvas, deleteSelectedShapes, copySelected, paste, duplicate, lang, setLang } = useStore()
   const t = T[lang]
 
   const TOOLS: { tool: Tool; icon: React.ReactNode; label: string; shortcut?: string; mobileHide?: boolean }[] = [
@@ -54,6 +61,10 @@ export function Toolbar({ onOpenJson, onOpenHelp }: { onOpenJson: () => void; on
       if (e.metaKey || e.ctrlKey) {
         if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return }
         if ((e.key === 'z' && e.shiftKey) || e.key === 'y') { e.preventDefault(); redo(); return }
+        if (e.key === 'c') { e.preventDefault(); copySelected(); return }
+        if (e.key === 'v') { e.preventDefault(); paste(); return }
+        if (e.key === 'd') { e.preventDefault(); duplicate(); return }
+        return
       }
       const map: Record<string, Tool> = { v: 'select', r: 'rect', o: 'ellipse', l: 'line', a: 'arrow', d: 'freehand', t: 'text', c: 'connector' }
       const k = map[e.key.toLowerCase()]
@@ -61,7 +72,7 @@ export function Toolbar({ onOpenJson, onOpenHelp }: { onOpenJson: () => void; on
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [setTool, undo, redo, deleteSelectedShapes])
+  }, [setTool, undo, redo, deleteSelectedShapes, copySelected, paste, duplicate])
 
   return (
     <div className="w-full sm:w-auto overflow-x-auto sm:overflow-visible scrollbar-none flex items-center gap-1 bg-[#22242f] border border-[#3a3d4d] rounded-xl px-2 py-1.5 shadow-xl">
@@ -133,6 +144,24 @@ export function Toolbar({ onOpenJson, onOpenHelp }: { onOpenJson: () => void; on
       </div>
 
       <div className="w-px h-6 bg-[#3a3d4d] mx-1 shrink-0" />
+
+      <Tooltip label={t.toolbar.options}>
+        <button onClick={onToggleOptions}
+          className={`shrink-0 p-2.5 sm:p-2 flex items-center justify-center rounded-lg transition-colors ${
+            optionsOpen ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-[#2e3144]'
+          }`}>
+          <SlidersHorizontal size={18} />
+        </button>
+      </Tooltip>
+
+      <Tooltip label={t.toolbar.layers}>
+        <button onClick={onOpenLayers}
+          className={`shrink-0 p-2.5 sm:p-2 flex items-center justify-center rounded-lg transition-colors ${
+            layersOpen ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-[#2e3144]'
+          }`}>
+          <Layers size={18} />
+        </button>
+      </Tooltip>
 
       <Tooltip label={t.toolbar.help}>
         <button onClick={onOpenHelp}

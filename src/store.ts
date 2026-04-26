@@ -1,6 +1,42 @@
 import { create } from 'zustand'
-import type { CanvasState, Shape, Tool, StrokeWidth, StrokeDash, Point } from './types'
+import type { CanvasState, Shape, Tool, StrokeWidth, StrokeDash, Point, AnchorPoint, ConnectorShape } from './types'
 import type { Lang } from './i18n'
+import { nanoid } from './utils'
+
+let _pasteCount = 0
+
+function cloneWithOffset(shape: Shape, offset: number, idMap: Map<string, string>): Shape {
+  const newId = idMap.get(shape.id)!
+  if (shape.type === 'rect' || shape.type === 'ellipse' || shape.type === 'text') {
+    return { ...shape, id: newId, x: shape.x + offset, y: shape.y + offset }
+  }
+  if (shape.type === 'line' || shape.type === 'arrow') {
+    return { ...shape, id: newId, points: shape.points.map(v => v + offset) }
+  }
+  if (shape.type === 'freehand') {
+    return { ...shape, id: newId, points: shape.points.map(([x, y, p]) => [x + offset, y + offset, p]) }
+  }
+  if (shape.type === 'connector') {
+    const remapAnchor = (a: AnchorPoint): AnchorPoint => ({
+      ...a,
+      shapeId: a.shapeId && idMap.has(a.shapeId) ? idMap.get(a.shapeId)! : null,
+      anchor: a.shapeId && idMap.has(a.shapeId) ? a.anchor : null,
+      x: a.x + offset,
+      y: a.y + offset,
+    })
+    const conn = shape as ConnectorShape
+    return {
+      ...conn,
+      id: newId,
+      start: remapAnchor(conn.start),
+      end: remapAnchor(conn.end),
+      controlPoint: conn.controlPoint
+        ? { x: conn.controlPoint.x + offset, y: conn.controlPoint.y + offset }
+        : undefined,
+    }
+  }
+  return { ...shape, id: newId }
+}
 
 interface StoreActions {
   setTool: (tool: Tool) => void
@@ -30,11 +66,16 @@ interface StoreActions {
   redo: () => void
   snapshot: () => void
 
+  copySelected: () => void
+  paste: () => void
+  duplicate: () => void
+
   clearCanvas: () => void
 }
 
 const INITIAL_STATE: CanvasState = {
   shapes: [],
+  clipboard: [],
   selectedIds: [],
   tool: 'select',
   strokeColor: '#3b82f6',
@@ -141,6 +182,32 @@ export const useStore = create<CanvasState & StoreActions>((set, get) => ({
     if (!future.length) return
     const next = future[0]
     set({ future: future.slice(1), shapes: next, past: [...past, shapes] })
+  },
+
+  copySelected: () => {
+    const { shapes, selectedIds } = get()
+    if (!selectedIds.length) return
+    set({ clipboard: shapes.filter(s => selectedIds.includes(s.id)) })
+    _pasteCount = 0
+  },
+
+  paste: () => {
+    const { clipboard } = get()
+    if (!clipboard.length) return
+    _pasteCount++
+    const offset = _pasteCount * 10
+    const idMap = new Map(clipboard.map(s => [s.id, nanoid()]))
+    const newShapes = clipboard.map(s => cloneWithOffset(s, offset, idMap))
+    get().snapshot()
+    set(state => ({ shapes: [...state.shapes, ...newShapes], selectedIds: newShapes.map(s => s.id) }))
+  },
+
+  duplicate: () => {
+    const { shapes, selectedIds } = get()
+    if (!selectedIds.length) return
+    set({ clipboard: shapes.filter(s => selectedIds.includes(s.id)) })
+    _pasteCount = 0
+    get().paste()
   },
 
   clearCanvas: () => {

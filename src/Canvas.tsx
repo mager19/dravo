@@ -95,17 +95,19 @@ function rectsIntersect(
   return ax1 < bx2 && ax2 > bx1 && ay1 < by2 && ay2 > by1
 }
 
-function ConnectorNode({ shape, shapes, isSelected: _isSelected, onSelect, onRegister }: {
+function ConnectorNode({ shape, shapes, isSelected, onSelect, onRegister, onDblClick }: {
   shape: ConnectorShape
   shapes: Shape[]
   isSelected: boolean
   onSelect: () => void
   onRegister: (id: string, node: Konva.Node | null) => void
+  onDblClick?: () => void
 }) {
-  const arrowRef = useRef<Konva.Arrow>(null)
+  const nodeRef = useRef<Konva.Node>(null)
+  const updateShape = useStore(s => s.updateShape)
 
   useEffect(() => {
-    onRegister(shape.id, arrowRef.current)
+    onRegister(shape.id, nodeRef.current)
     return () => onRegister(shape.id, null)
   }, [shape.id, onRegister])
 
@@ -119,14 +121,174 @@ function ConnectorNode({ shape, shapes, isSelected: _isSelected, onSelect, onReg
     ? getAnchorPos(endShape, shape.end.anchor)
     : { x: shape.end.x, y: shape.end.y }
 
+  const dashArray = DASH_MAP[shape.strokeDash] ?? []
+
+  if (shape.curved) {
+    const mx = (sp.x + ep.x) / 2
+    const my = (sp.y + ep.y) / 2
+    const dx = ep.x - sp.x
+    const dy = ep.y - sp.y
+    const len = Math.hypot(dx, dy) || 1
+    const nx = -dy / len
+    const ny = dx / len
+    const curveOff = Math.min(len / 3, 80)
+    const cp = shape.controlPoint ?? { x: mx + nx * curveOff, y: my + ny * curveOff }
+
+    // Bezier midpoint at t=0.5
+    const labelX = 0.25 * sp.x + 0.5 * cp.x + 0.25 * ep.x
+    const labelY = 0.25 * sp.y + 0.5 * cp.y + 0.25 * ep.y
+
+    // Arrowhead angle: tangent at t=1 points from cp to ep
+    const arrowAngle = Math.atan2(ep.y - cp.y, ep.x - cp.x)
+    const al = 10, aw = 7
+
+    // Bounding box del bezier = convex hull de sp, cp, ep
+    const PAD = 6
+    const bboxX = Math.min(sp.x, ep.x, cp.x) - PAD
+    const bboxY = Math.min(sp.y, ep.y, cp.y) - PAD
+    const bboxW = Math.max(sp.x, ep.x, cp.x) - bboxX - PAD + PAD * 2
+    const bboxH = Math.max(sp.y, ep.y, cp.y) - bboxY - PAD + PAD * 2
+
+    return (
+      <>
+        {/* Bounding box punteado */}
+        {isSelected && (
+          <Rect
+            x={bboxX} y={bboxY} width={bboxW} height={bboxH}
+            stroke="#3b82f6" strokeWidth={1}
+            dash={[4, 4]} fill="transparent" opacity={0.3} listening={false}
+          />
+        )}
+        {/* Halo de selección para conector curvo */}
+        {isSelected && (
+          <KonvaShape
+            sceneFunc={(ctx) => {
+              const raw = (ctx as any)._context as CanvasRenderingContext2D
+              raw.save()
+              raw.beginPath()
+              raw.moveTo(sp.x, sp.y)
+              raw.quadraticCurveTo(cp.x, cp.y, ep.x, ep.y)
+              raw.strokeStyle = '#3b82f6'
+              raw.lineWidth = shape.strokeWidth + 6
+              raw.globalAlpha = 0.25
+              raw.setLineDash([])
+              raw.stroke()
+              raw.restore()
+            }}
+            fill="transparent" stroke="transparent" strokeWidth={0} listening={false}
+          />
+        )}
+        <KonvaShape
+          ref={nodeRef as React.RefObject<Konva.Shape>}
+          sceneFunc={(ctx, sh) => {
+            // Bezier path via Konva ctx — on the hit canvas esto usa el color único
+            // de la shape, lo que permite que el click detection funcione correctamente
+            const raw = (ctx as any)._context as CanvasRenderingContext2D
+            raw.beginPath()
+            raw.moveTo(sp.x, sp.y)
+            raw.quadraticCurveTo(cp.x, cp.y, ep.x, ep.y)
+            ctx.strokeShape(sh)  // aplica stroke/hit-color correctamente
+            // Punta de flecha: solo visual, con raw canvas
+            raw.save()
+            raw.globalAlpha = shape.opacity
+            raw.fillStyle = shape.strokeColor
+            raw.setLineDash([])
+            raw.beginPath()
+            raw.moveTo(ep.x, ep.y)
+            raw.lineTo(ep.x - al * Math.cos(arrowAngle - aw / al), ep.y - al * Math.sin(arrowAngle - aw / al))
+            raw.lineTo(ep.x - al * Math.cos(arrowAngle + aw / al), ep.y - al * Math.sin(arrowAngle + aw / al))
+            raw.closePath()
+            raw.fill()
+            raw.restore()
+          }}
+          stroke={shape.strokeColor}
+          strokeWidth={shape.strokeWidth}
+          dash={dashArray.length ? dashArray : undefined}
+          fill="transparent"
+          opacity={shape.opacity}
+          hitStrokeWidth={16}
+          onClick={onSelect}
+          onTap={onSelect}
+          onDblClick={onDblClick}
+        />
+        {shape.label && (
+          <Text
+            x={labelX - 60} y={labelY - 11}
+            width={120}
+            text={shape.label}
+            fontSize={12}
+            fontFamily="system-ui, sans-serif"
+            fill={shape.strokeColor}
+            align="center"
+            listening={false}
+          />
+        )}
+        {isSelected && (
+          <Circle
+            x={cp.x} y={cp.y}
+            radius={6}
+            fill="#ffffff"
+            stroke="#3b82f6"
+            strokeWidth={2}
+            draggable
+            onDragEnd={(e) => {
+              updateShape(shape.id, { controlPoint: { x: e.target.x(), y: e.target.y() } } as Partial<Shape>)
+            }}
+          />
+        )}
+        {/* Endpoints — más grandes y marcados cuando está seleccionado */}
+        <Circle x={sp.x} y={sp.y} radius={isSelected ? 5 : 4}
+          fill={isSelected ? '#ffffff' : shape.strokeColor}
+          stroke={isSelected ? '#3b82f6' : undefined}
+          strokeWidth={isSelected ? 2 : 0}
+          listening={false} />
+        <Circle x={ep.x} y={ep.y} radius={isSelected ? 5 : 4}
+          fill={isSelected ? '#ffffff' : shape.strokeColor}
+          stroke={isSelected ? '#3b82f6' : undefined}
+          strokeWidth={isSelected ? 2 : 0}
+          listening={false} />
+      </>
+    )
+  }
+
+  // Straight connector
+  const midX = (sp.x + ep.x) / 2
+  const midY = (sp.y + ep.y) / 2
+  const PAD2 = 6
+  const sbboxX = Math.min(sp.x, ep.x) - PAD2
+  const sbboxY = Math.min(sp.y, ep.y) - PAD2
+  const sbboxW = Math.abs(ep.x - sp.x) + PAD2 * 2
+  const sbboxH = Math.abs(ep.y - sp.y) + PAD2 * 2
+
   return (
     <>
+      {/* Bounding box punteado */}
+      {isSelected && (
+        <Rect
+          x={sbboxX} y={sbboxY} width={sbboxW} height={sbboxH}
+          stroke="#3b82f6" strokeWidth={1}
+          dash={[4, 4]} fill="transparent" opacity={0.3} listening={false}
+        />
+      )}
+      {/* Halo de selección — línea más ancha y semitransparente detrás */}
+      {isSelected && (
+        <Arrow
+          points={[sp.x, sp.y, ep.x, ep.y]}
+          stroke="#3b82f6"
+          strokeWidth={shape.strokeWidth + 6}
+          fill="transparent"
+          pointerLength={0}
+          pointerWidth={0}
+          opacity={0.25}
+          listening={false}
+        />
+      )}
       <Arrow
-        ref={arrowRef}
+        ref={nodeRef as React.RefObject<Konva.Arrow>}
         points={[sp.x, sp.y, ep.x, ep.y]}
         stroke={shape.strokeColor}
         strokeWidth={shape.strokeWidth}
-        dash={DASH_MAP[shape.strokeDash]?.length ? DASH_MAP[shape.strokeDash] : undefined}
+        dash={dashArray.length ? dashArray : undefined}
         fill={shape.strokeColor}
         pointerLength={10}
         pointerWidth={8}
@@ -134,10 +296,31 @@ function ConnectorNode({ shape, shapes, isSelected: _isSelected, onSelect, onReg
         hitStrokeWidth={12}
         onClick={onSelect}
         onTap={onSelect}
+        onDblClick={onDblClick}
       />
-      {/* endpoint dots */}
-      <Circle x={sp.x} y={sp.y} radius={4} fill={shape.strokeColor} listening={false} />
-      <Circle x={ep.x} y={ep.y} radius={4} fill={shape.strokeColor} listening={false} />
+      {shape.label && (
+        <Text
+          x={midX - 60} y={midY - 11}
+          width={120}
+          text={shape.label}
+          fontSize={12}
+          fontFamily="system-ui, sans-serif"
+          fill={shape.strokeColor}
+          align="center"
+          listening={false}
+        />
+      )}
+      {/* Endpoints */}
+      <Circle x={sp.x} y={sp.y} radius={isSelected ? 5 : 4}
+        fill={isSelected ? '#ffffff' : shape.strokeColor}
+        stroke={isSelected ? '#3b82f6' : undefined}
+        strokeWidth={isSelected ? 2 : 0}
+        listening={false} />
+      <Circle x={ep.x} y={ep.y} radius={isSelected ? 5 : 4}
+        fill={isSelected ? '#ffffff' : shape.strokeColor}
+        stroke={isSelected ? '#3b82f6' : undefined}
+        strokeWidth={isSelected ? 2 : 0}
+        listening={false} />
     </>
   )
 }
@@ -424,6 +607,9 @@ export function Canvas() {
   const textInputRef = useRef(textInput)
   useEffect(() => { textInputRef.current = textInput }, [textInput])
 
+  // Bounding box pre-transform para escalar controlPoints de conectores curvos
+  const preTrSelBounds = useRef<{ x: number; y: number; w: number; h: number } | null>(null)
+
   // Rubber band selection state
   const selStartPos = useRef<Point | null>(null)
   const [selBox, setSelBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null)
@@ -444,8 +630,14 @@ export function Canvas() {
 
   const commitLabel = useCallback((value: string) => {
     if (labelEditorRef.current) {
-      const { textFontSize: fs, textFontFamily: ff, textBold: b, textItalic: it } = useStore.getState()
-      updateShape(labelEditorRef.current.shapeId, { label: value || undefined, labelFontSize: fs, labelFontFamily: ff, labelBold: b, labelItalic: it } as Partial<Shape>)
+      const shapeId = labelEditorRef.current.shapeId
+      const current = useStore.getState().shapes.find(s => s.id === shapeId)
+      if (current?.type === 'connector') {
+        updateShape(shapeId, { label: value || undefined } as Partial<Shape>)
+      } else {
+        const { textFontSize: fs, textFontFamily: ff, textBold: b, textItalic: it } = useStore.getState()
+        updateShape(shapeId, { label: value || undefined, labelFontSize: fs, labelFontFamily: ff, labelBold: b, labelItalic: it } as Partial<Shape>)
+      }
     }
     setLabelEditor(null)
     setIsLabelEditing(false)
@@ -460,11 +652,16 @@ export function Canvas() {
     }
   }, [])
 
-  // Sync Transformer nodes when selectedIds changes
+  // Sync Transformer nodes when selectedIds changes — excluye conectores
   useEffect(() => {
     const tr = transformerRef.current
     if (!tr) return
+    const currentShapes = useStore.getState().shapes
     const nodes = selectedIds
+      .filter(id => {
+        const s = currentShapes.find(sh => sh.id === id)
+        return s && s.type !== 'connector'
+      })
       .map(id => shapeNodeRefs.current.get(id))
       .filter((n): n is Konva.Node => Boolean(n))
     tr.nodes(nodes)
@@ -768,6 +965,20 @@ export function Canvas() {
                   if (tool === 'select') setSelectedIds([shape.id])
                 }}
                 onRegister={registerRef}
+                onDblClick={() => {
+                  if (tool !== 'select') return
+                  const conn = shape as ConnectorShape
+                  const startSh = conn.start.shapeId ? shapes.find(s => s.id === conn.start.shapeId) : null
+                  const endSh = conn.end.shapeId ? shapes.find(s => s.id === conn.end.shapeId) : null
+                  const sp2 = startSh && conn.start.anchor ? getAnchorPos(startSh, conn.start.anchor) : { x: conn.start.x, y: conn.start.y }
+                  const ep2 = endSh && conn.end.anchor ? getAnchorPos(endSh, conn.end.anchor) : { x: conn.end.x, y: conn.end.y }
+                  const midX2 = (sp2.x + ep2.x) / 2
+                  const midY2 = (sp2.y + ep2.y) / 2
+                  const screenX = midX2 * stageScale + stagePos.x
+                  const screenY = midY2 * stageScale + stagePos.y
+                  setIsLabelEditing(true)
+                  setLabelEditor({ shapeId: conn.id, x: screenX - 75, y: screenY - 20, w: 150, h: 40, color: conn.strokeColor, value: conn.label ?? '' })
+                }}
               />
             ) : (
               <ShapeNode
@@ -874,6 +1085,57 @@ export function Canvas() {
           <Transformer
             ref={transformerRef}
             boundBoxFunc={(oldBox, newBox) => (newBox.width < 5 || newBox.height < 5 ? oldBox : newBox)}
+            onTransformStart={() => {
+              const { shapes: s, selectedIds: selIds } = useStore.getState()
+              const bounds = selIds
+                .map(id => s.find(sh => sh.id === id))
+                .filter((sh): sh is Shape => !!sh && sh.type !== 'connector')
+                .map(getShapeBounds)
+                .filter((b): b is NonNullable<ReturnType<typeof getShapeBounds>> => !!b)
+              if (!bounds.length) { preTrSelBounds.current = null; return }
+              const minX = Math.min(...bounds.map(b => b.x))
+              const minY = Math.min(...bounds.map(b => b.y))
+              const maxX = Math.max(...bounds.map(b => b.x + b.w))
+              const maxY = Math.max(...bounds.map(b => b.y + b.h))
+              preTrSelBounds.current = { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
+            }}
+            onTransformEnd={() => {
+              const pre = preTrSelBounds.current
+              preTrSelBounds.current = null
+              if (!pre || pre.w === 0 || pre.h === 0) return
+              // setTimeout garantiza que los handlers individuales de cada shape
+              // ya actualizaron el store antes de que leamos los bounds post-transform
+              setTimeout(() => {
+                const { shapes: s, selectedIds: selIds } = useStore.getState()
+                const bounds = selIds
+                  .map(id => s.find(sh => sh.id === id))
+                  .filter((sh): sh is Shape => !!sh && sh.type !== 'connector')
+                  .map(getShapeBounds)
+                  .filter((b): b is NonNullable<ReturnType<typeof getShapeBounds>> => !!b)
+                if (!bounds.length) return
+                const minX = Math.min(...bounds.map(b => b.x))
+                const minY = Math.min(...bounds.map(b => b.y))
+                const maxX = Math.max(...bounds.map(b => b.x + b.w))
+                const maxY = Math.max(...bounds.map(b => b.y + b.h))
+                const postW = maxX - minX
+                const postH = maxY - minY
+                if (postW === 0 || postH === 0) return
+                const scX = postW / pre.w
+                const scY = postH / pre.h
+                selIds.forEach(id => {
+                  const sh = s.find(x => x.id === id)
+                  if (!sh || sh.type !== 'connector') return
+                  const conn = sh as ConnectorShape
+                  if (!conn.curved || !conn.controlPoint) return
+                  updateShape(id, {
+                    controlPoint: {
+                      x: (conn.controlPoint.x - pre.x) * scX + minX,
+                      y: (conn.controlPoint.y - pre.y) * scY + minY,
+                    }
+                  } as Partial<Shape>)
+                })
+              }, 0)
+            }}
           />
         </Layer>
       </Stage>

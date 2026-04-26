@@ -73,6 +73,9 @@ export interface ConnectorShape extends ShapeBase {
   type: 'connector'
   start: AnchorPoint
   end: AnchorPoint
+  curved?: boolean
+  label?: string
+  controlPoint?: Point
 }
 
 export interface TextShape extends ShapeBase {
@@ -103,6 +106,7 @@ export interface CanvasState {
   roughEnabled: boolean
   lang: Lang
   shapes: Shape[]
+  clipboard: Shape[]
   selectedIds: string[]
   tool: Tool
   strokeColor: string
