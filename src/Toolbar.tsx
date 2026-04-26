@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import {
   MousePointer2, Square, Circle, Minus, ArrowRight,
-  Pencil, Type, Trash2, Undo2, Redo2, FilePlus, Network, Download, Braces, HelpCircle, Layers, SlidersHorizontal,
+  Pencil, Type, Trash2, Undo2, Redo2, FilePlus, Network, Download, Braces, HelpCircle, Layers, SlidersHorizontal, Grid2X2,
 } from 'lucide-react'
 import Konva from 'konva'
 import { useStore } from './store'
@@ -17,7 +17,7 @@ export function Toolbar({ onOpenJson, onOpenHelp, onOpenLayers, layersOpen, opti
   optionsOpen: boolean
   onToggleOptions: () => void
 }) {
-  const { tool, setTool, undo, redo, clearCanvas, deleteSelectedShapes, copySelected, paste, duplicate, lang, setLang } = useStore()
+  const { tool, setTool, undo, redo, clearCanvas, deleteSelectedShapes, copySelected, paste, duplicate, lang, setLang, gridEnabled, setGridEnabled } = useStore()
   const t = T[lang]
 
   const TOOLS: { tool: Tool; icon: React.ReactNode; label: string; shortcut?: string; mobileHide?: boolean }[] = [
@@ -66,6 +66,7 @@ export function Toolbar({ onOpenJson, onOpenHelp, onOpenLayers, layersOpen, opti
         if (e.key === 'd') { e.preventDefault(); duplicate(); return }
         return
       }
+      if (e.key.toLowerCase() === 'g') { setGridEnabled(!useStore.getState().gridEnabled); return }
       const map: Record<string, Tool> = { v: 'select', r: 'rect', o: 'ellipse', l: 'line', a: 'arrow', d: 'freehand', t: 'text', c: 'connector' }
       const k = map[e.key.toLowerCase()]
       if (k) setTool(k)
@@ -144,6 +145,15 @@ export function Toolbar({ onOpenJson, onOpenHelp, onOpenLayers, layersOpen, opti
       </div>
 
       <div className="w-px h-6 bg-[#3a3d4d] mx-1 shrink-0" />
+
+      <Tooltip label={t.toolbar.grid}>
+        <button onClick={() => setGridEnabled(!gridEnabled)}
+          className={`shrink-0 p-2.5 sm:p-2 flex items-center justify-center rounded-lg transition-colors ${
+            gridEnabled ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-[#2e3144]'
+          }`}>
+          <Grid2X2 size={18} />
+        </button>
+      </Tooltip>
 
       <Tooltip label={t.toolbar.options}>
         <button onClick={onToggleOptions}

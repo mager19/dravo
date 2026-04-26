@@ -70,6 +70,7 @@ interface StoreActions {
   paste: () => void
   duplicate: () => void
 
+  setGridEnabled: (v: boolean) => void
   clearCanvas: () => void
 }
 
@@ -93,6 +94,7 @@ const INITIAL_STATE: CanvasState = {
   textItalic: false,
   isLabelEditing: false,
   roughEnabled: false,
+  gridEnabled: false,
   lang: (localStorage.getItem('dravo:lang') as Lang | null) ?? 'es',
 }
 
@@ -209,6 +211,8 @@ export const useStore = create<CanvasState & StoreActions>((set, get) => ({
     _pasteCount = 0
     get().paste()
   },
+
+  setGridEnabled: (gridEnabled) => set({ gridEnabled }),
 
   clearCanvas: () => {
     get().snapshot()

@@ -122,4 +122,5 @@ export interface CanvasState {
   textFontFamily: string
   textBold: boolean
   textItalic: boolean
+  gridEnabled: boolean
 }

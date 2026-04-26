@@ -95,6 +95,49 @@ function rectsIntersect(
   return ax1 < bx2 && ax2 > bx1 && ay1 < by2 && ay2 > by1
 }
 
+function GridLayer({ stageScale, stagePos }: { stageScale: number; stagePos: Point }) {
+  let pitch = 20
+  while (pitch * stageScale < 16) pitch *= 2
+
+  const W = window.innerWidth
+  const H = window.innerHeight
+  const wLeft  = -stagePos.x / stageScale
+  const wTop   = -stagePos.y / stageScale
+  const wRight  = (W - stagePos.x) / stageScale
+  const wBottom = (H - stagePos.y) / stageScale
+
+  const startX = Math.floor(wLeft  / pitch) * pitch
+  const startY = Math.floor(wTop   / pitch) * pitch
+  const lw = 1 / stageScale
+
+  return (
+    <Layer listening={false}>
+      <KonvaShape
+        listening={false}
+        fill="transparent"
+        stroke="transparent"
+        sceneFunc={(ctx) => {
+          const raw = (ctx as any)._context as CanvasRenderingContext2D
+          raw.save()
+          raw.strokeStyle = '#2a2d3a'
+          raw.lineWidth = lw
+          raw.beginPath()
+          for (let x = startX; x <= wRight + pitch; x += pitch) {
+            raw.moveTo(x, wTop - pitch)
+            raw.lineTo(x, wBottom + pitch)
+          }
+          for (let y = startY; y <= wBottom + pitch; y += pitch) {
+            raw.moveTo(wLeft - pitch, y)
+            raw.lineTo(wRight + pitch, y)
+          }
+          raw.stroke()
+          raw.restore()
+        }}
+      />
+    </Layer>
+  )
+}
+
 function ConnectorNode({ shape, shapes, isSelected, onSelect, onRegister, onDblClick }: {
   shape: ConnectorShape
   shapes: Shape[]
@@ -341,6 +384,18 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
     return () => onRegister(shape.id, null)
   }, [shape.id, onRegister])
 
+  const dragBoundFunc = (pos: { x: number; y: number }) => {
+    const { gridEnabled, stageScale: sc, stagePos: sp } = useStore.getState()
+    if (!gridEnabled) return pos
+    let pitch = 20
+    while (pitch * sc < 16) pitch *= 2
+    const ps = pitch * sc
+    return {
+      x: Math.round((pos.x - sp.x) / ps) * ps + sp.x,
+      y: Math.round((pos.y - sp.y) / ps) * ps + sp.y,
+    }
+  }
+
   const dashArray = DASH_MAP[shape.strokeDash] ?? []
   const common = {
     stroke: shape.strokeColor,
@@ -348,6 +403,7 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
     dash: dashArray.length ? dashArray : undefined,
     opacity: shape.opacity,
     draggable: tool === 'select',
+    dragBoundFunc,
     onClick: onSelect,
     onTap: () => onSelect({} as Konva.KonvaEventObject<MouseEvent>),
     onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => {
@@ -367,6 +423,7 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
         ref={shapeRef as React.RefObject<Konva.Group>}
         x={shape.x} y={shape.y}
         draggable={tool === 'select'} opacity={shape.opacity}
+        dragBoundFunc={dragBoundFunc}
         onClick={onSelect}
         onTap={() => onSelect({} as Konva.KonvaEventObject<MouseEvent>)}
         onDblClick={onDblClick}
@@ -406,6 +463,7 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
         ref={shapeRef as React.RefObject<Konva.Group>}
         x={shape.x} y={shape.y}
         draggable={tool === 'select'} opacity={shape.opacity}
+        dragBoundFunc={dragBoundFunc}
         onClick={onSelect}
         onTap={() => onSelect({} as Konva.KonvaEventObject<MouseEvent>)}
         onDblClick={onDblClick}
@@ -591,7 +649,7 @@ export function Canvas() {
   const {
     shapes, selectedIds, tool,
     strokeColor, fillColor, strokeWidth, strokeDash, opacity, roughEnabled,
-    stageScale, stagePos,
+    stageScale, stagePos, gridEnabled,
     textFontSize, textFontFamily, textBold, textItalic,
     setTextFontSize, setTextFontFamily, setTextBold, setTextItalic,
     setSelectedIds, setStageScale, setStagePos, setTool, setIsLabelEditing,
@@ -952,6 +1010,7 @@ export function Canvas() {
         onTouchMove={handleMouseMove as never}
         onTouchEnd={handleMouseUp}
       >
+        {gridEnabled && <GridLayer stageScale={stageScale} stagePos={stagePos} />}
         <Layer>
           {shapes.map((shape) =>
             shape.type === 'connector' ? (
