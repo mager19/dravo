@@ -35,7 +35,7 @@ function cloneWithOffset(shape: Shape, offset: number, idMap: Map<string, string
         : undefined,
     }
   }
-  return { ...shape, id: newId }
+  return { ...(shape as Record<string, unknown>), id: newId } as Shape
 }
 
 interface StoreActions {
