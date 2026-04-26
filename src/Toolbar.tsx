@@ -42,7 +42,10 @@ export function Toolbar({ onOpenJson, onOpenHelp, onOpenLayers, layersOpen, opti
   const handleExport = () => {
     const stage = Konva.stages[0]
     if (!stage) return
+    const gridLayer = stage.findOne('.grid')
+    if (gridLayer) gridLayer.hide()
     const dataURL = stage.toDataURL({ pixelRatio: 2 })
+    if (gridLayer) gridLayer.show()
     const a = document.createElement('a')
     a.href = dataURL
     a.download = t.toolbar.exportFile

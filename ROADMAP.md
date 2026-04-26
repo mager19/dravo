@@ -52,8 +52,9 @@ Generar un link único para compartir o recuperar un canvas.
 
 ### Calidad de vida (alto impacto, bajo costo)
 - ~~**Copy / Paste / Duplicate**~~ ✅ Implementado
+- ~~**Snap a grilla**~~ ✅ Implementado (G para toggle, magnético al pitch)
+- **Temas: Dark / Light / Sepia** — tres modos de color para el canvas y la UI. Dark (actual), Light (fondo claro), Sepia (fondo cálido estilo papel). Toggle en toolbar, persistido en localStorage.
 - **Alinear y distribuir** — barra contextual al seleccionar múltiples shapes: alinear al eje, distribuir equidistante. Muy útil para diagramas prolijos.
-- **Snap a grilla** — cuadrícula opcional con magnetismo. Ayuda mucho al alineamiento manual.
 - **Zoom to fit / zoom to selection** — atajo para encuadrar todo el canvas o lo seleccionado.
 - **Lock shapes** — bloquear un shape para que no se pueda mover ni editar accidentalmente.
 

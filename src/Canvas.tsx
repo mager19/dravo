@@ -111,7 +111,7 @@ function GridLayer({ stageScale, stagePos }: { stageScale: number; stagePos: Poi
   const lw = 1 / stageScale
 
   return (
-    <Layer listening={false}>
+    <Layer listening={false} name="grid">
       <KonvaShape
         listening={false}
         fill="transparent"
@@ -119,6 +119,7 @@ function GridLayer({ stageScale, stagePos }: { stageScale: number; stagePos: Poi
         sceneFunc={(ctx) => {
           const raw = (ctx as any)._context as CanvasRenderingContext2D
           raw.save()
+          raw.globalAlpha = 0.4
           raw.strokeStyle = '#2a2d3a'
           raw.lineWidth = lw
           raw.beginPath()
