@@ -431,7 +431,7 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
         rotation={shape.rotation ?? 0}
         onTransformEnd={() => {
           const g = shapeRef.current as Konva.Group
-          onChange({ x: g.x(), y: g.y(), rotation: g.rotation(), width: Math.max(1, shape.width * g.scaleX()), height: Math.max(1, shape.height * g.scaleY()) } as Partial<Shape>)
+          onChange({ x: g.x(), y: g.y(), rotation: g.rotation(), width: Math.max(1, Math.abs(shape.width * g.scaleX())), height: Math.max(1, Math.abs(shape.height * g.scaleY())) } as Partial<Shape>)
           g.scaleX(1); g.scaleY(1)
         }}
       >
@@ -450,7 +450,7 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
             <Rect x={lx} y={ly} width={lw} height={lh} fill="transparent" stroke="transparent" strokeWidth={0} />
           </>
         ) : (
-          <Rect x={0} y={0} width={shape.width} height={shape.height} fill={shape.fillColor} stroke={shape.strokeColor} strokeWidth={shape.strokeWidth} dash={dashArray.length ? dashArray : undefined} />
+          <Rect x={lx} y={ly} width={lw} height={lh} fill={shape.fillColor} stroke={shape.strokeColor} strokeWidth={shape.strokeWidth} dash={dashArray.length ? dashArray : undefined} />
         )}
         {shape.label && (
           <Text x={lx} y={ly} width={lw} height={lh} text={shape.label} fontSize={shape.labelFontSize ?? 16} fontFamily={shape.labelFontFamily ?? 'system-ui, sans-serif'} fontStyle={[shape.labelItalic ? 'italic' : '', shape.labelBold ? 'bold' : ''].filter(Boolean).join(' ') || 'normal'} fill={shape.strokeColor} align="center" verticalAlign="middle" wrap="word" padding={6} listening={false} />
@@ -471,7 +471,7 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
         rotation={shape.rotation ?? 0}
         onTransformEnd={() => {
           const g = shapeRef.current as Konva.Group
-          onChange({ x: g.x(), y: g.y(), rotation: g.rotation(), radiusX: Math.max(1, shape.radiusX * g.scaleX()), radiusY: Math.max(1, shape.radiusY * g.scaleY()) } as Partial<Shape>)
+          onChange({ x: g.x(), y: g.y(), rotation: g.rotation(), radiusX: Math.max(1, Math.abs(shape.radiusX * g.scaleX())), radiusY: Math.max(1, Math.abs(shape.radiusY * g.scaleY())) } as Partial<Shape>)
           g.scaleX(1); g.scaleY(1)
         }}
       >
@@ -940,6 +940,16 @@ export function Canvas() {
       const MIN = 20
       if (shape.type === 'rect' && Math.abs(shape.width) < MIN && Math.abs(shape.height) < MIN) {
         deleteShape(draftId!)
+      } else if (shape.type === 'rect') {
+        // Normalize so width/height are always positive — negative values break Konva's Transformer
+        if (shape.width < 0 || shape.height < 0) {
+          updateShape(draftId!, {
+            x: shape.width < 0 ? shape.x + shape.width : shape.x,
+            y: shape.height < 0 ? shape.y + shape.height : shape.y,
+            width: Math.abs(shape.width),
+            height: Math.abs(shape.height),
+          } as Partial<Shape>)
+        }
       } else if (shape.type === 'ellipse' && shape.radiusX < MIN / 2 && shape.radiusY < MIN / 2) {
         deleteShape(draftId!)
       } else if ((shape.type === 'line' || shape.type === 'arrow') && Math.hypot(shape.points[2] - shape.points[0], shape.points[3] - shape.points[1]) < MIN) {
@@ -947,7 +957,7 @@ export function Canvas() {
       }
     }
     setDraftId(null)
-  }, [drawing, draftId, deleteShape, getPointerPos, stageScale, addShape, strokeColor, strokeWidth, setTool, tool, selBox, setSelectedIds])
+  }, [drawing, draftId, deleteShape, updateShape, getPointerPos, stageScale, addShape, strokeColor, strokeWidth, setTool, tool, selBox, setSelectedIds])
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
