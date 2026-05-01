@@ -546,9 +546,6 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
       <Arrow ref={shapeRef as React.RefObject<Konva.Arrow>} {...common} points={shape.points} fill={shape.strokeColor} pointerLength={10} pointerWidth={8} />
     )
   } else if (shape.type === 'freehand') {
-    // Compute bounding box so the Konva node has explicit position/size.
-    // Without this, getSelfRect() returns {0,0,0,0} and the Transformer
-    // appears at the canvas origin (top-left) instead of over the stroke.
     const fh = shape as FreehandShape
     const fxs = fh.points.map(p => p[0])
     const fys = fh.points.map(p => p[1])
@@ -558,13 +555,10 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
     const fH = Math.max(1, (fys.length ? Math.max(...fys) : 1) - fMinY)
 
     node = (
-      <KonvaShape
-        ref={shapeRef as React.RefObject<Konva.Shape>}
+      <Group
+        ref={shapeRef as React.RefObject<Konva.Group>}
         x={fMinX}
         y={fMinY}
-        width={fW}
-        height={fH}
-        opacity={shape.opacity}
         draggable={tool === 'select'}
         dragBoundFunc={dragBoundFunc}
         onClick={onSelect}
@@ -574,29 +568,31 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
           const dy = e.target.y() - fMinY
           onChange({ points: fh.points.map(([px, py, pp]) => [px + dx, py + dy, pp]) } as Partial<Shape>)
         }}
-        sceneFunc={(ctx, sh) => {
-          const stroke = getStroke(fh.points, { size: shape.strokeWidth * 3, thinning: 0.5, smoothing: 0.5, streamline: 0.5 })
-          if (!stroke.length) return
-          ctx.beginPath()
-          ctx.moveTo(stroke[0][0] - fMinX, stroke[0][1] - fMinY)
-          for (let i = 1; i < stroke.length; i++) ctx.lineTo(stroke[i][0] - fMinX, stroke[i][1] - fMinY)
-          ctx.closePath()
-          ctx.fillStrokeShape(sh)
-        }}
-        hitFunc={(ctx) => {
-          if (!fh.points.length) return
-          const raw = (ctx as any)._context as CanvasRenderingContext2D
-          raw.beginPath()
-          raw.moveTo(fh.points[0][0] - fMinX, fh.points[0][1] - fMinY)
-          for (let i = 1; i < fh.points.length; i++) raw.lineTo(fh.points[i][0] - fMinX, fh.points[i][1] - fMinY)
-          raw.lineWidth = 20
-          raw.strokeStyle = '#000'
-          raw.stroke()
-        }}
-        fill={shape.strokeColor}
-        stroke="transparent"
-        strokeWidth={0}
-      />
+        opacity={shape.opacity}
+      >
+        <KonvaShape
+          width={fW}
+          height={fH}
+          sceneFunc={(ctx, sh) => {
+            const stroke = getStroke(fh.points, { size: shape.strokeWidth * 3, thinning: 0.5, smoothing: 0.5, streamline: 0.5 })
+            if (!stroke.length) return
+            ctx.beginPath()
+            ctx.moveTo(stroke[0][0] - fMinX, stroke[0][1] - fMinY)
+            for (let i = 1; i < stroke.length; i++) ctx.lineTo(stroke[i][0] - fMinX, stroke[i][1] - fMinY)
+            ctx.closePath()
+            ctx.fillStrokeShape(sh)
+          }}
+          hitFunc={(ctx, sh) => {
+            const raw = (ctx as any)._context as CanvasRenderingContext2D
+            raw.beginPath()
+            raw.rect(0, 0, fW, fH)
+            ctx.fillStrokeShape(sh)
+          }}
+          fill={shape.strokeColor}
+          stroke="transparent"
+          strokeWidth={0}
+        />
+      </Group>
     )
   } else if (shape.type === 'text') {
     node = (
