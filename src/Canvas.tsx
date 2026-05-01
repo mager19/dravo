@@ -546,25 +546,49 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
       <Arrow ref={shapeRef as React.RefObject<Konva.Arrow>} {...common} points={shape.points} fill={shape.strokeColor} pointerLength={10} pointerWidth={8} />
     )
   } else if (shape.type === 'freehand') {
+    // Compute bounding box so the Konva node has explicit position/size.
+    // Without this, getSelfRect() returns {0,0,0,0} and the Transformer
+    // appears at the canvas origin (top-left) instead of over the stroke.
+    const fh = shape as FreehandShape
+    const fxs = fh.points.map(p => p[0])
+    const fys = fh.points.map(p => p[1])
+    const fMinX = fxs.length ? Math.min(...fxs) : 0
+    const fMinY = fys.length ? Math.min(...fys) : 0
+    const fW = Math.max(1, (fxs.length ? Math.max(...fxs) : 1) - fMinX)
+    const fH = Math.max(1, (fys.length ? Math.max(...fys) : 1) - fMinY)
+
     node = (
       <KonvaShape
         ref={shapeRef as React.RefObject<Konva.Shape>}
-        {...common}
+        x={fMinX}
+        y={fMinY}
+        width={fW}
+        height={fH}
+        opacity={shape.opacity}
+        draggable={tool === 'select'}
+        dragBoundFunc={dragBoundFunc}
+        onClick={onSelect}
+        onTap={() => onSelect({} as Konva.KonvaEventObject<MouseEvent>)}
+        onDragEnd={(e: Konva.KonvaEventObject<DragEvent>) => {
+          const dx = e.target.x() - fMinX
+          const dy = e.target.y() - fMinY
+          onChange({ points: fh.points.map(([px, py, pp]) => [px + dx, py + dy, pp]) } as Partial<Shape>)
+        }}
         sceneFunc={(ctx, sh) => {
-          const stroke = getStroke(shape.points, { size: shape.strokeWidth * 3, thinning: 0.5, smoothing: 0.5, streamline: 0.5 })
+          const stroke = getStroke(fh.points, { size: shape.strokeWidth * 3, thinning: 0.5, smoothing: 0.5, streamline: 0.5 })
           if (!stroke.length) return
           ctx.beginPath()
-          ctx.moveTo(stroke[0][0], stroke[0][1])
-          for (let i = 1; i < stroke.length; i++) ctx.lineTo(stroke[i][0], stroke[i][1])
+          ctx.moveTo(stroke[0][0] - fMinX, stroke[0][1] - fMinY)
+          for (let i = 1; i < stroke.length; i++) ctx.lineTo(stroke[i][0] - fMinX, stroke[i][1] - fMinY)
           ctx.closePath()
           ctx.fillStrokeShape(sh)
         }}
         hitFunc={(ctx) => {
-          if (!shape.points.length) return
+          if (!fh.points.length) return
           const raw = (ctx as any)._context as CanvasRenderingContext2D
           raw.beginPath()
-          raw.moveTo(shape.points[0][0], shape.points[0][1])
-          for (let i = 1; i < shape.points.length; i++) raw.lineTo(shape.points[i][0], shape.points[i][1])
+          raw.moveTo(fh.points[0][0] - fMinX, fh.points[0][1] - fMinY)
+          for (let i = 1; i < fh.points.length; i++) raw.lineTo(fh.points[i][0] - fMinX, fh.points[i][1] - fMinY)
           raw.lineWidth = 20
           raw.strokeStyle = '#000'
           raw.stroke()
