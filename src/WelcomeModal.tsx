@@ -25,7 +25,19 @@ export function WelcomeModal({ onClose }: { onClose: () => void }) {
       >
         {/* Header */}
         <div className="px-7 pt-6 pb-4 border-b border-[var(--c-border)]">
-          <img src="/logo.svg" className="h-8 w-auto mb-3 opacity-95" alt="Dravo" />
+          <svg viewBox="0 0 116 40" fill="none" xmlns="http://www.w3.org/2000/svg"
+            className="h-8 w-auto mb-3 text-[var(--c-text)]">
+            <line x1="6" y1="6" x2="6" y2="34" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round"/>
+            <path d="M6,6 C20,6 30,12 30,20 C30,28 20,34 6,34" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round"/>
+            <circle cx="6"  cy="6"  r="3.5" fill="#3b82f6"/>
+            <circle cx="6"  cy="34" r="3.5" fill="#3b82f6"/>
+            <circle cx="30" cy="20" r="3.5" fill="#3b82f6"/>
+            <circle cx="22" cy="7.5"  r="2" fill="#60a5fa"/>
+            <circle cx="22" cy="32.5" r="2" fill="#60a5fa"/>
+            <text x="40" y="31" fontFamily="'Segoe UI', system-ui, sans-serif"
+              fontSize="26" fontStyle="italic" fontWeight="300"
+              fill="currentColor" letterSpacing="-0.5">ravo</text>
+          </svg>
           <p className="text-[var(--c-text)] text-sm leading-relaxed opacity-80">{t.tagline}</p>
         </div>
 
