@@ -1,4 +1,5 @@
 export type Tool = 'select' | 'rect' | 'ellipse' | 'line' | 'arrow' | 'freehand' | 'text' | 'connector' | 'delete'
+export type Theme = 'dark' | 'light' | 'sepia'
 
 export type AnchorSide = 'n' | 's' | 'e' | 'w' | 'center'
 
@@ -102,6 +103,7 @@ import type { Lang } from './i18n'
 export type { Lang }
 
 export interface CanvasState {
+  theme: Theme
   isLabelEditing: boolean
   roughEnabled: boolean
   lang: Lang

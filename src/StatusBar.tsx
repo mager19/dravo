@@ -16,7 +16,7 @@ export function StatusBar() {
   const toolName = t[tool as keyof typeof t] ?? tool
 
   return (
-    <div className="absolute bottom-1 left-1/2 -translate-x-1/2 z-10 hidden sm:flex gap-4 text-[11px] text-gray-500 select-none pointer-events-none">
+    <div className="absolute bottom-1 left-1/2 -translate-x-1/2 z-10 hidden sm:flex gap-4 text-[11px] text-[var(--c-subtle)] select-none pointer-events-none">
       <span>{toolName}</span>
       <span>x:{mouse.x} y:{mouse.y}</span>
       <span>{t.zoom} {Math.round(stageScale * 100)}%</span>

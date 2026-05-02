@@ -18,7 +18,7 @@ export function ConnectorOptions() {
 
   return (
     <div
-      className="flex items-center gap-1 bg-[#22242f] border border-[#3a3d4d] rounded-xl px-2 py-1.5 shadow-xl"
+      className="flex items-center gap-1 bg-[var(--c-panel)] border border-[var(--c-border)] rounded-xl px-2 py-1.5 shadow-xl"
       onMouseDown={e => e.preventDefault()}
     >
       <button
@@ -26,7 +26,7 @@ export function ConnectorOptions() {
         className={`flex items-center gap-1.5 text-sm px-2.5 py-1 rounded-lg transition-colors ${
           conn.curved
             ? 'bg-blue-600 text-white'
-            : 'text-gray-400 hover:text-white hover:bg-[#2e3144]'
+            : 'text-[var(--c-muted)] hover:text-[var(--c-text)] hover:bg-[var(--c-hover)]'
         }`}
         title={conn.curved ? t.connectorOptions.straight : t.connectorOptions.curved}
       >

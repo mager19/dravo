@@ -44,7 +44,7 @@ export function TextOptions() {
   }
 
   return (
-    <div className="flex items-center gap-2 bg-[#22242f] border border-[#3a3d4d] rounded-xl px-3 py-1.5 shadow-xl" onMouseDown={e => e.preventDefault()}>
+    <div className="flex items-center gap-2 bg-[var(--c-panel)] border border-[var(--c-border)] rounded-xl px-3 py-1.5 shadow-xl" onMouseDown={e => e.preventDefault()}>
       <div className="flex gap-1">
         {FONTS.map(({ label, value }) => (
           <button
@@ -53,7 +53,7 @@ export function TextOptions() {
             className={`px-2 py-1 rounded text-xs transition-colors ${
               textFontFamily === value
                 ? 'bg-blue-600 text-white'
-                : 'text-gray-400 hover:text-white hover:bg-[#2e3144]'
+                : 'text-[var(--c-muted)] hover:text-[var(--c-text)] hover:bg-[var(--c-hover)]'
             }`}
             style={{ fontFamily: value }}
           >
@@ -62,7 +62,7 @@ export function TextOptions() {
         ))}
       </div>
 
-      <div className="w-px h-5 bg-[#3a3d4d]" />
+      <div className="w-px h-5 bg-[var(--c-border)]" />
 
       <div className="flex gap-1 items-center">
         {SIZES.map((s) => (
@@ -72,7 +72,7 @@ export function TextOptions() {
             className={`w-7 h-6 rounded text-xs transition-colors ${
               textFontSize === s
                 ? 'bg-blue-600 text-white'
-                : 'text-gray-400 hover:text-white hover:bg-[#2e3144]'
+                : 'text-[var(--c-muted)] hover:text-[var(--c-text)] hover:bg-[var(--c-hover)]'
             }`}
           >
             {s}
@@ -80,12 +80,12 @@ export function TextOptions() {
         ))}
       </div>
 
-      <div className="w-px h-5 bg-[#3a3d4d]" />
+      <div className="w-px h-5 bg-[var(--c-border)]" />
 
       <button
         onClick={applyBold}
         className={`p-1.5 rounded transition-colors ${
-          textBold ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-[#2e3144]'
+          textBold ? 'bg-blue-600 text-white' : 'text-[var(--c-muted)] hover:text-[var(--c-text)] hover:bg-[var(--c-hover)]'
         }`}
         title="Negrita"
       >
@@ -94,7 +94,7 @@ export function TextOptions() {
       <button
         onClick={applyItalic}
         className={`p-1.5 rounded transition-colors ${
-          textItalic ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-[#2e3144]'
+          textItalic ? 'bg-blue-600 text-white' : 'text-[var(--c-muted)] hover:text-[var(--c-text)] hover:bg-[var(--c-hover)]'
         }`}
         title="Cursiva"
       >

@@ -2,12 +2,13 @@ import { useEffect } from 'react'
 import {
   MousePointer2, Square, Circle, Minus, ArrowRight,
   Pencil, Type, Trash2, Undo2, Redo2, FilePlus, Network, Download, Braces, HelpCircle, Layers, SlidersHorizontal, Grid2X2,
+  Moon, Sun, Coffee,
 } from 'lucide-react'
 import Konva from 'konva'
 import { useStore } from './store'
 import { T } from './i18n'
 import { Tooltip } from './Tooltip'
-import type { Tool } from './types'
+import type { Tool, Theme } from './types'
 
 export function Toolbar({ onOpenJson, onOpenHelp, onOpenLayers, layersOpen, optionsOpen, onToggleOptions }: {
   onOpenJson: () => void
@@ -17,7 +18,7 @@ export function Toolbar({ onOpenJson, onOpenHelp, onOpenLayers, layersOpen, opti
   optionsOpen: boolean
   onToggleOptions: () => void
 }) {
-  const { tool, setTool, undo, redo, clearCanvas, deleteSelectedShapes, copySelected, paste, duplicate, lang, setLang, gridEnabled, setGridEnabled, moveSelectedShapes } = useStore()
+  const { tool, setTool, undo, redo, clearCanvas, deleteSelectedShapes, copySelected, paste, duplicate, lang, setLang, gridEnabled, setGridEnabled, moveSelectedShapes, theme, setTheme } = useStore()
   const t = T[lang]
 
   const TOOLS: { tool: Tool; icon: React.ReactNode; label: string; shortcut?: string; mobileHide?: boolean }[] = [
@@ -30,6 +31,12 @@ export function Toolbar({ onOpenJson, onOpenHelp, onOpenLayers, layersOpen, opti
     { tool: 'text',      icon: <Type size={18} />,          label: t.tools.text,      shortcut: 'T' },
     { tool: 'connector', icon: <Network size={18} />,       label: t.tools.connector, shortcut: 'C',  mobileHide: true },
     { tool: 'delete',    icon: <Trash2 size={18} />,        label: t.tools.delete,    mobileHide: true },
+  ]
+
+  const THEMES: { value: Theme; icon: React.ReactNode; label: string }[] = [
+    { value: 'dark',  icon: <Moon size={13} />,   label: t.toolbar.themeDark },
+    { value: 'light', icon: <Sun size={13} />,    label: t.toolbar.themeLight },
+    { value: 'sepia', icon: <Coffee size={13} />, label: t.toolbar.themeSepia },
   ]
 
   const handleNew = () => {
@@ -90,7 +97,7 @@ export function Toolbar({ onOpenJson, onOpenHelp, onOpenLayers, layersOpen, opti
   }, [setTool, undo, redo, deleteSelectedShapes, copySelected, paste, duplicate, moveSelectedShapes])
 
   return (
-    <div className="w-full sm:w-auto overflow-x-auto sm:overflow-visible scrollbar-none flex items-center gap-1 bg-[#22242f] border border-[#3a3d4d] rounded-xl px-2 py-1.5 shadow-xl">
+    <div className="w-full sm:w-auto overflow-x-auto sm:overflow-visible scrollbar-none flex items-center gap-1 bg-[var(--c-panel)] border border-[var(--c-border)] rounded-xl px-2 py-1.5 shadow-xl">
       <img src="/logo.svg" className="h-6 sm:h-7 w-auto mr-1 opacity-90 shrink-0" alt="Dravo" />
 
       {TOOLS.map(({ tool: t_, icon, label, shortcut, mobileHide }) => (
@@ -98,7 +105,7 @@ export function Toolbar({ onOpenJson, onOpenHelp, onOpenLayers, layersOpen, opti
           <button
             onClick={() => setTool(t_)}
             className={`shrink-0 p-2.5 sm:p-2 rounded-lg transition-colors ${mobileHide ? 'hidden sm:flex' : 'flex'} items-center justify-center ${
-              tool === t_ ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-[#2e3144]'
+              tool === t_ ? 'bg-blue-600 text-white' : 'text-[var(--c-muted)] hover:text-[var(--c-text)] hover:bg-[var(--c-hover)]'
             }`}
           >
             {icon}
@@ -106,64 +113,79 @@ export function Toolbar({ onOpenJson, onOpenHelp, onOpenLayers, layersOpen, opti
         </Tooltip>
       ))}
 
-      <div className="w-px h-6 bg-[#3a3d4d] mx-1 shrink-0" />
+      <div className="w-px h-6 bg-[var(--c-border)] mx-1 shrink-0" />
 
       <Tooltip label={t.toolbar.newCanvas}>
         <button onClick={handleNew}
-          className="shrink-0 hidden sm:flex items-center justify-center p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2e3144] transition-colors">
+          className="shrink-0 hidden sm:flex items-center justify-center p-2 rounded-lg text-[var(--c-muted)] hover:text-[var(--c-text)] hover:bg-[var(--c-hover)] transition-colors">
           <FilePlus size={18} />
         </button>
       </Tooltip>
 
       <Tooltip label={t.toolbar.exportPng}>
         <button onClick={handleExport}
-          className="shrink-0 p-2.5 sm:p-2 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-[#2e3144] transition-colors">
+          className="shrink-0 p-2.5 sm:p-2 flex items-center justify-center rounded-lg text-[var(--c-muted)] hover:text-[var(--c-text)] hover:bg-[var(--c-hover)] transition-colors">
           <Download size={18} />
         </button>
       </Tooltip>
 
       <Tooltip label={t.toolbar.exportJson}>
         <button onClick={onOpenJson}
-          className="shrink-0 hidden sm:flex items-center justify-center p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2e3144] transition-colors">
+          className="shrink-0 hidden sm:flex items-center justify-center p-2 rounded-lg text-[var(--c-muted)] hover:text-[var(--c-text)] hover:bg-[var(--c-hover)] transition-colors">
           <Braces size={18} />
         </button>
       </Tooltip>
 
-      <div className="w-px h-6 bg-[#3a3d4d] mx-1 shrink-0" />
+      <div className="w-px h-6 bg-[var(--c-border)] mx-1 shrink-0" />
 
       <Tooltip label={t.toolbar.undo} shortcut="⌘Z">
         <button onClick={undo}
-          className="shrink-0 p-2.5 sm:p-2 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-[#2e3144] transition-colors">
+          className="shrink-0 p-2.5 sm:p-2 flex items-center justify-center rounded-lg text-[var(--c-muted)] hover:text-[var(--c-text)] hover:bg-[var(--c-hover)] transition-colors">
           <Undo2 size={18} />
         </button>
       </Tooltip>
 
       <Tooltip label={t.toolbar.redo} shortcut="⌘⇧Z">
         <button onClick={redo}
-          className="shrink-0 p-2.5 sm:p-2 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-[#2e3144] transition-colors">
+          className="shrink-0 p-2.5 sm:p-2 flex items-center justify-center rounded-lg text-[var(--c-muted)] hover:text-[var(--c-text)] hover:bg-[var(--c-hover)] transition-colors">
           <Redo2 size={18} />
         </button>
       </Tooltip>
 
-      <div className="w-px h-6 bg-[#3a3d4d] mx-1 shrink-0" />
+      <div className="w-px h-6 bg-[var(--c-border)] mx-1 shrink-0" />
 
       <div className="flex shrink-0">
         {(['es', 'en'] as const).map((l) => (
           <button key={l} onClick={() => setLang(l)}
             className={`px-1.5 py-1 rounded text-[11px] font-medium transition-colors ${
-              lang === l ? 'text-white' : 'text-gray-600 hover:text-gray-400'
+              lang === l ? 'text-[var(--c-text)]' : 'text-[var(--c-subtle)] hover:text-[var(--c-muted)]'
             }`}>
             {l.toUpperCase()}
           </button>
         ))}
       </div>
 
-      <div className="w-px h-6 bg-[#3a3d4d] mx-1 shrink-0" />
+      <div className="w-px h-6 bg-[var(--c-border)] mx-1 shrink-0" />
+
+      <div className="flex shrink-0">
+        {THEMES.map(({ value, icon, label }) => (
+          <Tooltip key={value} label={label}>
+            <button onClick={() => setTheme(value)}
+              className={`p-1.5 rounded transition-colors ${
+                theme === value ? 'text-[var(--c-text)]' : 'text-[var(--c-subtle)] hover:text-[var(--c-muted)]'
+              }`}>
+              {icon}
+            </button>
+          </Tooltip>
+        ))}
+      </div>
+
+      <div className="w-px h-6 bg-[var(--c-border)] mx-1 shrink-0" />
 
       <Tooltip label={t.toolbar.grid}>
         <button onClick={() => setGridEnabled(!gridEnabled)}
           className={`shrink-0 p-2.5 sm:p-2 flex items-center justify-center rounded-lg transition-colors ${
-            gridEnabled ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-[#2e3144]'
+            gridEnabled ? 'bg-blue-600 text-white' : 'text-[var(--c-muted)] hover:text-[var(--c-text)] hover:bg-[var(--c-hover)]'
           }`}>
           <Grid2X2 size={18} />
         </button>
@@ -172,7 +194,7 @@ export function Toolbar({ onOpenJson, onOpenHelp, onOpenLayers, layersOpen, opti
       <Tooltip label={t.toolbar.options}>
         <button onClick={onToggleOptions}
           className={`shrink-0 p-2.5 sm:p-2 flex items-center justify-center rounded-lg transition-colors ${
-            optionsOpen ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-[#2e3144]'
+            optionsOpen ? 'bg-blue-600 text-white' : 'text-[var(--c-muted)] hover:text-[var(--c-text)] hover:bg-[var(--c-hover)]'
           }`}>
           <SlidersHorizontal size={18} />
         </button>
@@ -181,7 +203,7 @@ export function Toolbar({ onOpenJson, onOpenHelp, onOpenLayers, layersOpen, opti
       <Tooltip label={t.toolbar.layers}>
         <button onClick={onOpenLayers}
           className={`shrink-0 p-2.5 sm:p-2 flex items-center justify-center rounded-lg transition-colors ${
-            layersOpen ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-[#2e3144]'
+            layersOpen ? 'bg-blue-600 text-white' : 'text-[var(--c-muted)] hover:text-[var(--c-text)] hover:bg-[var(--c-hover)]'
           }`}>
           <Layers size={18} />
         </button>
@@ -189,7 +211,7 @@ export function Toolbar({ onOpenJson, onOpenHelp, onOpenLayers, layersOpen, opti
 
       <Tooltip label={t.toolbar.help}>
         <button onClick={onOpenHelp}
-          className="shrink-0 p-2.5 sm:p-2 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-[#2e3144] transition-colors">
+          className="shrink-0 p-2.5 sm:p-2 flex items-center justify-center rounded-lg text-[var(--c-muted)] hover:text-[var(--c-text)] hover:bg-[var(--c-hover)] transition-colors">
           <HelpCircle size={18} />
         </button>
       </Tooltip>

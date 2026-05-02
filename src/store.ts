@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { CanvasState, Shape, Tool, StrokeWidth, StrokeDash, Point, AnchorPoint, ConnectorShape } from './types'
+import type { CanvasState, Shape, Tool, Theme, StrokeWidth, StrokeDash, Point, AnchorPoint, ConnectorShape } from './types'
 import type { Lang } from './i18n'
 import { nanoid } from './utils'
 
@@ -55,6 +55,7 @@ interface StoreActions {
   setIsLabelEditing: (v: boolean) => void
   setRoughEnabled: (v: boolean) => void
   setLang: (lang: Lang) => void
+  setTheme: (theme: Theme) => void
 
   addShape: (shape: Shape) => void
   updateShape: (id: string, patch: Partial<Shape>) => void
@@ -97,6 +98,7 @@ const INITIAL_STATE: CanvasState = {
   roughEnabled: false,
   gridEnabled: false,
   lang: (localStorage.getItem('dravo:lang') as Lang | null) ?? 'es',
+  theme: (localStorage.getItem('dravo:theme') as Theme | null) ?? 'dark',
 }
 
 export const useStore = create<CanvasState & StoreActions>((set, get) => ({
@@ -142,6 +144,7 @@ export const useStore = create<CanvasState & StoreActions>((set, get) => ({
     if (selectedIds.length) set((s) => ({ shapes: s.shapes.map(sh => selectedIds.includes(sh.id) ? { ...sh, rough: roughEnabled } as Shape : sh) }))
   },
   setLang: (lang) => { localStorage.setItem('dravo:lang', lang); set({ lang }) },
+  setTheme: (theme) => { localStorage.setItem('dravo:theme', theme); document.documentElement.setAttribute('data-theme', theme); set({ theme }) },
 
   snapshot: () => {
     const { shapes, past } = get()

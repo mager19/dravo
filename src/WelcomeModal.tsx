@@ -20,22 +20,22 @@ export function WelcomeModal({ onClose }: { onClose: () => void }) {
       onClick={onClose}
     >
       <div
-        className="bg-[#22242f] border border-[#3a3d4d] rounded-2xl shadow-2xl w-full max-w-md"
+        className="bg-[var(--c-panel)] border border-[var(--c-border)] rounded-2xl shadow-2xl w-full max-w-md"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-7 pt-6 pb-4 border-b border-[#3a3d4d]">
+        <div className="px-7 pt-6 pb-4 border-b border-[var(--c-border)]">
           <img src="/logo.svg" className="h-8 w-auto mb-3 opacity-95" alt="Dravo" />
-          <p className="text-gray-300 text-sm leading-relaxed">{t.tagline}</p>
+          <p className="text-[var(--c-text)] text-sm leading-relaxed opacity-80">{t.tagline}</p>
         </div>
 
         {/* Tools */}
-        <div className="px-7 py-4 border-b border-[#3a3d4d]">
-          <p className="text-[11px] text-gray-500 uppercase tracking-wider mb-3">{t.toolsTitle}</p>
+        <div className="px-7 py-4 border-b border-[var(--c-border)]">
+          <p className="text-[11px] text-[var(--c-subtle)] uppercase tracking-wider mb-3">{t.toolsTitle}</p>
           <ul className="flex flex-col gap-2">
             {t.toolList.map((label, i) => (
-              <li key={i} className="flex items-center gap-3 text-sm text-gray-300">
-                <span className="text-blue-400 shrink-0">{TOOL_ICONS[i]}</span>
+              <li key={i} className="flex items-center gap-3 text-sm text-[var(--c-text)] opacity-80">
+                <span className="text-blue-400 shrink-0 opacity-100">{TOOL_ICONS[i]}</span>
                 {label}
               </li>
             ))}
@@ -43,15 +43,15 @@ export function WelcomeModal({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* Shortcuts */}
-        <div className="px-7 py-4 border-b border-[#3a3d4d]">
-          <p className="text-[11px] text-gray-500 uppercase tracking-wider mb-3">{t.shortcutsTitle}</p>
+        <div className="px-7 py-4 border-b border-[var(--c-border)]">
+          <p className="text-[11px] text-[var(--c-subtle)] uppercase tracking-wider mb-3">{t.shortcutsTitle}</p>
           <ul className="flex flex-col gap-1.5">
             {t.shortcuts.map(({ key, desc }) => (
               <li key={key} className="flex items-baseline gap-3 text-xs">
-                <kbd className="text-[11px] font-mono bg-[#1a1b23] border border-[#3a3d4d] text-blue-300 px-1.5 py-0.5 rounded shrink-0 min-w-[60px] text-center">
+                <kbd className="text-[11px] font-mono bg-[var(--c-panel-alt)] border border-[var(--c-border)] text-blue-400 px-1.5 py-0.5 rounded shrink-0 min-w-[60px] text-center">
                   {key}
                 </kbd>
-                <span className="text-gray-400">{desc}</span>
+                <span className="text-[var(--c-muted)]">{desc}</span>
               </li>
             ))}
           </ul>
@@ -60,20 +60,20 @@ export function WelcomeModal({ onClose }: { onClose: () => void }) {
         {/* Footer */}
         <div className="px-7 py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="flex bg-[#1a1b23] border border-[#3a3d4d] rounded-lg p-0.5">
+            <div className="flex bg-[var(--c-panel-alt)] border border-[var(--c-border)] rounded-lg p-0.5">
               {(['es', 'en'] as const).map((l) => (
                 <button
                   key={l}
                   onClick={() => setLang(l)}
                   className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
-                    lang === l ? 'bg-[#2e3144] text-white' : 'text-gray-500 hover:text-gray-300'
+                    lang === l ? 'bg-[var(--c-hover)] text-[var(--c-text)]' : 'text-[var(--c-subtle)] hover:text-[var(--c-muted)]'
                   }`}
                 >
                   {l.toUpperCase()}
                 </button>
               ))}
             </div>
-            <p className="text-xs text-gray-500 flex items-center gap-1">
+            <p className="text-xs text-[var(--c-subtle)] flex items-center gap-1">
               <Download size={12} className="shrink-0" />
               PNG ·
               <Braces size={12} className="shrink-0" />

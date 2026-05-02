@@ -18,15 +18,15 @@ export function ColorPicker() {
   ]
 
   return (
-    <div className="w-full sm:w-auto overflow-x-auto sm:overflow-visible scrollbar-none flex items-center gap-2 sm:gap-3 bg-[#22242f] border border-[#3a3d4d] rounded-xl px-3 sm:px-4 py-2 shadow-xl">
+    <div className="w-full sm:w-auto overflow-x-auto sm:overflow-visible scrollbar-none flex items-center gap-2 sm:gap-3 bg-[var(--c-panel)] border border-[var(--c-border)] rounded-xl px-3 sm:px-4 py-2 shadow-xl">
 
       <div className="flex flex-col gap-1 shrink-0">
-        <span className="text-[10px] text-gray-500 uppercase tracking-wide hidden sm:block">{t.stroke}</span>
+        <span className="text-[10px] text-[var(--c-subtle)] uppercase tracking-wide hidden sm:block">{t.stroke}</span>
         <div className="flex gap-1">
           {COLORS.map((c) => (
             <button key={c} onClick={() => setStrokeColor(c)}
               className="w-5 h-5 rounded-full border-2 transition-transform hover:scale-110 shrink-0"
-              style={{ background: c, borderColor: strokeColor === c ? '#fff' : 'transparent' }} />
+              style={{ background: c, borderColor: strokeColor === c ? 'var(--c-text)' : 'transparent' }} />
           ))}
           <input type="color" value={strokeColor} onChange={(e) => setStrokeColor(e.target.value)}
             className="w-5 h-5 rounded-full cursor-pointer border-0 bg-transparent p-0 shrink-0"
@@ -34,46 +34,46 @@ export function ColorPicker() {
         </div>
       </div>
 
-      <div className="w-px h-6 bg-[#3a3d4d] shrink-0" />
+      <div className="w-px h-6 bg-[var(--c-border)] shrink-0" />
 
       <div className="flex flex-col gap-1 shrink-0">
-        <span className="text-[10px] text-gray-500 uppercase tracking-wide hidden sm:block">{t.fill}</span>
+        <span className="text-[10px] text-[var(--c-subtle)] uppercase tracking-wide hidden sm:block">{t.fill}</span>
         <div className="flex gap-1 items-center">
           <button onClick={() => setFillColor('transparent')}
             className="w-5 h-5 rounded-full border-2 relative overflow-hidden shrink-0"
-            style={{ borderColor: fillColor === 'transparent' ? '#fff' : '#555' }}
+            style={{ borderColor: fillColor === 'transparent' ? 'var(--c-text)' : 'var(--c-muted)' }}
             title={t.noFill}>
-            <div className="absolute inset-0 bg-[#1a1b23]" />
+            <div className="absolute inset-0 bg-[var(--c-bg)]" />
             <div className="absolute inset-0 flex items-center justify-center text-red-400 text-xs font-bold">×</div>
           </button>
           {COLORS.map((c) => (
             <button key={c} onClick={() => setFillColor(c)}
               className="w-5 h-5 rounded-full border-2 transition-transform hover:scale-110 shrink-0"
-              style={{ background: c, borderColor: fillColor === c ? '#fff' : 'transparent' }} />
+              style={{ background: c, borderColor: fillColor === c ? 'var(--c-text)' : 'transparent' }} />
           ))}
         </div>
       </div>
 
-      <div className="w-px h-6 bg-[#3a3d4d] shrink-0" />
+      <div className="w-px h-6 bg-[var(--c-border)] shrink-0" />
 
       <div className="hidden sm:flex flex-col gap-1 shrink-0">
-        <span className="text-[10px] text-gray-500 uppercase tracking-wide">{t.lineStyle}</span>
+        <span className="text-[10px] text-[var(--c-subtle)] uppercase tracking-wide">{t.lineStyle}</span>
         <div className="flex gap-1 items-center">
           {DASHES.map(({ value, label, pattern }) => (
             <button key={value} title={label} onClick={() => setStrokeDash(value)}
               className={`flex items-center justify-center w-8 h-5 rounded transition-colors ${
-                strokeDash === value ? 'bg-blue-600' : 'hover:bg-[#2e3144]'
+                strokeDash === value ? 'bg-blue-600' : 'hover:bg-[var(--c-hover)]'
               }`}>
               <svg width="22" height="4" viewBox="0 0 22 4">
                 <line x1="1" y1="2" x2="21" y2="2" stroke="currentColor" strokeWidth="2"
                   strokeLinecap="round" strokeDasharray={pattern || undefined}
-                  className={strokeDash === value ? 'text-white' : 'text-gray-400'} />
+                  className={strokeDash === value ? 'text-white' : 'text-[var(--c-muted)]'} />
               </svg>
             </button>
           ))}
           <button title={t.rough} onClick={() => setRoughEnabled(!roughEnabled)}
             className={`flex items-center justify-center w-8 h-5 rounded transition-colors text-xs font-medium ${
-              roughEnabled ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-[#2e3144]'
+              roughEnabled ? 'bg-blue-600 text-white' : 'text-[var(--c-muted)] hover:bg-[var(--c-hover)]'
             }`}>
             <svg width="22" height="8" viewBox="0 0 22 8">
               <path d="M1 4 C3 1, 5 7, 7 4 C9 1, 11 7, 13 4 C15 1, 17 7, 19 4 C20 2.5, 21 3, 21 4"
@@ -83,15 +83,15 @@ export function ColorPicker() {
         </div>
       </div>
 
-      <div className="hidden sm:block w-px h-6 bg-[#3a3d4d] shrink-0" />
+      <div className="hidden sm:block w-px h-6 bg-[var(--c-border)] shrink-0" />
 
       <div className="flex flex-col gap-1 shrink-0">
-        <span className="text-[10px] text-gray-500 uppercase tracking-wide hidden sm:block">{t.width}</span>
+        <span className="text-[10px] text-[var(--c-subtle)] uppercase tracking-wide hidden sm:block">{t.width}</span>
         <div className="flex gap-1 items-center">
           {WIDTHS.map((w) => (
             <button key={w} onClick={() => setStrokeWidth(w)}
               className={`flex items-center justify-center w-7 h-5 rounded text-xs transition-colors shrink-0 ${
-                strokeWidth === w ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-[#2e3144]'
+                strokeWidth === w ? 'bg-blue-600 text-white' : 'text-[var(--c-muted)] hover:bg-[var(--c-hover)]'
               }`}>
               {w}
             </button>
@@ -99,11 +99,11 @@ export function ColorPicker() {
         </div>
       </div>
 
-      <div className="w-px h-6 bg-[#3a3d4d] shrink-0" />
+      <div className="w-px h-6 bg-[var(--c-border)] shrink-0" />
 
       <div className="flex flex-col gap-1 shrink-0">
-        <span className="text-[10px] text-gray-500 uppercase tracking-wide hidden sm:block">
-          {t.opacity} <span className="text-gray-400">{Math.round(opacity * 100)}%</span>
+        <span className="text-[10px] text-[var(--c-subtle)] uppercase tracking-wide hidden sm:block">
+          {t.opacity} <span className="text-[var(--c-muted)]">{Math.round(opacity * 100)}%</span>
         </span>
         <input type="range" min={0} max={1} step={0.05} value={opacity}
           onChange={(e) => setOpacity(Number(e.target.value))}

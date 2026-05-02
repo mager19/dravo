@@ -13,10 +13,12 @@ import type { TextShape } from './types'
 
 function App() {
   const {
-    tool, selectedIds, shapes, isLabelEditing,
+    tool, selectedIds, shapes, isLabelEditing, theme,
     setStrokeColor, setFillColor, setStrokeWidth, setStrokeDash, setOpacity,
     setTextFontSize, setTextFontFamily, setTextBold, setTextItalic, setRoughEnabled,
   } = useStore()
+
+  useEffect(() => { document.documentElement.setAttribute('data-theme', theme) }, [theme])
 
   const [showJson, setShowJson] = useState(false)
   const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem('dravo:welcomed'))

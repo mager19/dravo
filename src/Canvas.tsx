@@ -95,7 +95,9 @@ function rectsIntersect(
   return ax1 < bx2 && ax2 > bx1 && ay1 < by2 && ay2 > by1
 }
 
-function GridLayer({ stageScale, stagePos }: { stageScale: number; stagePos: Point }) {
+const GRID_COLORS: Record<string, string> = { dark: '#2a2d3a', light: '#dde3ec', sepia: '#d6c9a8' }
+
+function GridLayer({ stageScale, stagePos, gridColor }: { stageScale: number; stagePos: Point; gridColor: string }) {
   let pitch = 20
   while (pitch * stageScale < 16) pitch *= 2
 
@@ -119,7 +121,7 @@ function GridLayer({ stageScale, stagePos }: { stageScale: number; stagePos: Poi
         sceneFunc={(ctx) => {
           const raw = (ctx as any)._context as CanvasRenderingContext2D
           raw.save()
-          raw.strokeStyle = '#2a2d3a'
+          raw.strokeStyle = gridColor
           raw.lineWidth = lw
           raw.beginPath()
           for (let x = startX; x <= wRight + pitch; x += pitch) {
@@ -669,7 +671,7 @@ export function Canvas() {
   const {
     shapes, selectedIds, tool,
     strokeColor, fillColor, strokeWidth, strokeDash, opacity, roughEnabled,
-    stageScale, stagePos, gridEnabled,
+    stageScale, stagePos, gridEnabled, theme,
     textFontSize, textFontFamily, textBold, textItalic,
     setTextFontSize, setTextFontFamily, setTextBold, setTextItalic,
     setSelectedIds, setStageScale, setStagePos, setTool, setIsLabelEditing,
@@ -1040,7 +1042,7 @@ export function Canvas() {
         onTouchMove={handleMouseMove as never}
         onTouchEnd={handleMouseUp}
       >
-        {gridEnabled && <GridLayer stageScale={stageScale} stagePos={stagePos} />}
+        {gridEnabled && <GridLayer stageScale={stageScale} stagePos={stagePos} gridColor={GRID_COLORS[theme] ?? '#2a2d3a'} />}
         <Layer>
           {shapes.map((shape) =>
             shape.type === 'connector' ? (

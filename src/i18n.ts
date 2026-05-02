@@ -28,6 +28,9 @@ export const T = {
       confirmClear: '¿Limpiar el canvas? Esta acción no se puede deshacer.',
       exportFile:   'dravo.png',
       help:         'Ayuda',
+      themeDark:    'Tema oscuro',
+      themeLight:   'Tema claro',
+      themeSepia:   'Tema sepia',
     },
     colorPicker: {
       stroke:       'Trazo',
@@ -148,6 +151,9 @@ export const T = {
       confirmClear: 'Clear the canvas? This cannot be undone.',
       exportFile:   'dravo.png',
       help:         'Help',
+      themeDark:    'Dark theme',
+      themeLight:   'Light theme',
+      themeSepia:   'Sepia theme',
     },
     colorPicker: {
       stroke:      'Stroke',

@@ -54,16 +54,16 @@ export function LayersPanel({ onClose }: { onClose: () => void }) {
   const reversed = [...shapes].reverse()
 
   return (
-    <div className="fixed right-3 top-3 z-30 flex flex-col w-56 max-h-[calc(100vh-140px)] bg-[#22242f] border border-[#3a3d4d] rounded-xl shadow-2xl">
+    <div className="fixed right-3 top-3 z-30 flex flex-col w-56 max-h-[calc(100vh-140px)] bg-[var(--c-panel)] border border-[var(--c-border)] rounded-xl shadow-2xl">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-[#3a3d4d] shrink-0">
-        <span className="text-[11px] text-gray-400 uppercase tracking-wider font-medium">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--c-border)] shrink-0">
+        <span className="text-[11px] text-[var(--c-muted)] uppercase tracking-wider font-medium">
           {t.title}
-          <span className="ml-1.5 text-gray-600 normal-case tracking-normal">({shapes.length})</span>
+          <span className="ml-1.5 text-[var(--c-subtle)] normal-case tracking-normal">({shapes.length})</span>
         </span>
         <button
           onClick={onClose}
-          className="text-gray-600 hover:text-white transition-colors p-0.5 rounded"
+          className="text-[var(--c-subtle)] hover:text-[var(--c-text)] transition-colors p-0.5 rounded"
         >
           <X size={14} />
         </button>
@@ -72,7 +72,7 @@ export function LayersPanel({ onClose }: { onClose: () => void }) {
       {/* List */}
       <div className="overflow-y-auto flex-1 py-1 scrollbar-none">
         {shapes.length === 0 ? (
-          <p className="text-gray-600 text-xs text-center py-8">{t.empty}</p>
+          <p className="text-[var(--c-subtle)] text-xs text-center py-8">{t.empty}</p>
         ) : (
           reversed.map((shape) => {
             const isSelected = selectedIds.includes(shape.id)
@@ -81,8 +81,8 @@ export function LayersPanel({ onClose }: { onClose: () => void }) {
                 key={shape.id}
                 className={`flex items-center gap-2 px-2 py-1.5 mx-1 rounded-lg cursor-pointer group select-none ${
                   isSelected
-                    ? 'bg-blue-600/25 text-white'
-                    : 'text-gray-400 hover:bg-[#2e3144] hover:text-white'
+                    ? 'bg-blue-600/20 text-[var(--c-text)]'
+                    : 'text-[var(--c-muted)] hover:bg-[var(--c-hover)] hover:text-[var(--c-text)]'
                 }`}
                 onClick={(e) => handleSelect(shape.id, e)}
               >
@@ -102,14 +102,14 @@ export function LayersPanel({ onClose }: { onClose: () => void }) {
                 <div className={`flex gap-0.5 shrink-0 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                   <button
                     onClick={(e) => handleDuplicate(shape.id, e)}
-                    className="p-1 rounded hover:bg-[#3a3d4d] text-gray-400 hover:text-white transition-colors"
+                    className="p-1 rounded hover:bg-[var(--c-border)] text-[var(--c-muted)] hover:text-[var(--c-text)] transition-colors"
                     title={t.duplicate}
                   >
                     <Copy size={11} />
                   </button>
                   <button
                     onClick={(e) => handleDelete(shape.id, e)}
-                    className="p-1 rounded hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors"
+                    className="p-1 rounded hover:bg-red-500/20 text-[var(--c-muted)] hover:text-red-400 transition-colors"
                     title={t.delete}
                   >
                     <Trash2 size={11} />

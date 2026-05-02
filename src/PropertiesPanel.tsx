@@ -24,14 +24,14 @@ interface Props {
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-[10px] text-gray-500 uppercase tracking-wide">{label}</span>
+      <span className="text-[10px] text-[var(--c-subtle)] uppercase tracking-wide">{label}</span>
       {children}
     </div>
   )
 }
 
 function Divider() {
-  return <div className="h-px bg-[#3a3d4d] shrink-0" />
+  return <div className="h-px bg-[var(--c-border)] shrink-0" />
 }
 
 export function PropertiesPanel({ open, onToggle, showTextOptions, showConnectorOptions }: Props) {
@@ -70,9 +70,7 @@ export function PropertiesPanel({ open, onToggle, showTextOptions, showConnector
   ]
 
   return (
-    /* Outer: vertical centering, no overflow */
     <div className="fixed left-0 top-1/2 z-20 -translate-y-1/2 pointer-events-none">
-      {/* Inner: slides horizontally */}
       <div
         className={`flex items-stretch will-change-transform transition-transform duration-300 ease-in-out pointer-events-auto ${
           open ? 'translate-x-0' : '-translate-x-52'
@@ -80,7 +78,7 @@ export function PropertiesPanel({ open, onToggle, showTextOptions, showConnector
       >
         {/* Panel content (w-52 = 208px) */}
         <div
-          className="w-52 flex flex-col gap-3 bg-[#22242f] border border-[#3a3d4d] border-r-0 rounded-l-xl px-3 py-3 shadow-2xl overflow-y-auto scrollbar-none"
+          className="w-52 flex flex-col gap-3 bg-[var(--c-panel)] border border-[var(--c-border)] border-r-0 rounded-l-xl px-3 py-3 shadow-2xl overflow-y-auto scrollbar-none"
           style={{ maxHeight: 'calc(100vh - 80px)' }}
           onMouseDown={e => e.preventDefault()}
         >
@@ -90,7 +88,7 @@ export function PropertiesPanel({ open, onToggle, showTextOptions, showConnector
               {COLORS.map(c => (
                 <button key={c} onClick={() => setStrokeColor(c)}
                   className="w-4 h-4 rounded-full border-2 transition-transform hover:scale-110 shrink-0"
-                  style={{ background: c, borderColor: strokeColor === c ? '#fff' : 'transparent' }} />
+                  style={{ background: c, borderColor: strokeColor === c ? 'var(--c-text)' : 'transparent' }} />
               ))}
               <input type="color" value={strokeColor} onChange={e => setStrokeColor(e.target.value)}
                 className="w-4 h-4 rounded-full cursor-pointer border-0 bg-transparent p-0 shrink-0"
@@ -105,15 +103,15 @@ export function PropertiesPanel({ open, onToggle, showTextOptions, showConnector
             <div className="flex flex-wrap gap-1 items-center">
               <button onClick={() => setFillColor('transparent')}
                 className="w-4 h-4 rounded-full border-2 relative overflow-hidden shrink-0"
-                style={{ borderColor: fillColor === 'transparent' ? '#fff' : '#555' }}
+                style={{ borderColor: fillColor === 'transparent' ? 'var(--c-text)' : 'var(--c-muted)' }}
                 title={tc.noFill}>
-                <div className="absolute inset-0 bg-[#1a1b23]" />
+                <div className="absolute inset-0 bg-[var(--c-bg)]" />
                 <div className="absolute inset-0 flex items-center justify-center text-red-400 font-bold" style={{ fontSize: 9 }}>×</div>
               </button>
               {COLORS.map(c => (
                 <button key={c} onClick={() => setFillColor(c)}
                   className="w-4 h-4 rounded-full border-2 transition-transform hover:scale-110 shrink-0"
-                  style={{ background: c, borderColor: fillColor === c ? '#fff' : 'transparent' }} />
+                  style={{ background: c, borderColor: fillColor === c ? 'var(--c-text)' : 'transparent' }} />
               ))}
             </div>
           </Section>
@@ -126,18 +124,18 @@ export function PropertiesPanel({ open, onToggle, showTextOptions, showConnector
               {DASHES.map(({ value, label, pattern }) => (
                 <button key={value} title={label} onClick={() => setStrokeDash(value)}
                   className={`flex items-center justify-center w-9 h-5 rounded transition-colors ${
-                    strokeDash === value ? 'bg-blue-600' : 'hover:bg-[#2e3144]'
+                    strokeDash === value ? 'bg-blue-600' : 'hover:bg-[var(--c-hover)]'
                   }`}>
                   <svg width="22" height="4" viewBox="0 0 22 4">
                     <line x1="1" y1="2" x2="21" y2="2" stroke="currentColor" strokeWidth="2"
                       strokeLinecap="round" strokeDasharray={pattern || undefined}
-                      className={strokeDash === value ? 'text-white' : 'text-gray-400'} />
+                      className={strokeDash === value ? 'text-white' : 'text-[var(--c-muted)]'} />
                   </svg>
                 </button>
               ))}
               <button title={tc.rough} onClick={() => setRoughEnabled(!roughEnabled)}
                 className={`flex items-center justify-center w-9 h-5 rounded transition-colors ${
-                  roughEnabled ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-[#2e3144]'
+                  roughEnabled ? 'bg-blue-600 text-white' : 'text-[var(--c-muted)] hover:bg-[var(--c-hover)]'
                 }`}>
                 <svg width="22" height="8" viewBox="0 0 22 8">
                   <path d="M1 4 C3 1, 5 7, 7 4 C9 1, 11 7, 13 4 C15 1, 17 7, 19 4 C20 2.5, 21 3, 21 4"
@@ -155,7 +153,7 @@ export function PropertiesPanel({ open, onToggle, showTextOptions, showConnector
               {WIDTHS.map(w => (
                 <button key={w} onClick={() => setStrokeWidth(w)}
                   className={`flex items-center justify-center w-9 h-6 rounded text-xs transition-colors ${
-                    strokeWidth === w ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-[#2e3144]'
+                    strokeWidth === w ? 'bg-blue-600 text-white' : 'text-[var(--c-muted)] hover:bg-[var(--c-hover)]'
                   }`}>
                   {w}
                 </button>
@@ -179,7 +177,7 @@ export function PropertiesPanel({ open, onToggle, showTextOptions, showConnector
                   {FONTS.map(({ label, value }) => (
                     <button key={value} onClick={() => applyFont(value)}
                       className={`px-1.5 py-0.5 rounded text-[11px] transition-colors ${
-                        textFontFamily === value ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-[#2e3144]'
+                        textFontFamily === value ? 'bg-blue-600 text-white' : 'text-[var(--c-muted)] hover:text-[var(--c-text)] hover:bg-[var(--c-hover)]'
                       }`}
                       style={{ fontFamily: value }}>
                       {label}
@@ -190,7 +188,7 @@ export function PropertiesPanel({ open, onToggle, showTextOptions, showConnector
                   {SIZES.map(s => (
                     <button key={s} onClick={() => applySize(s)}
                       className={`w-8 h-5 rounded text-xs transition-colors ${
-                        textFontSize === s ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-[#2e3144]'
+                        textFontSize === s ? 'bg-blue-600 text-white' : 'text-[var(--c-muted)] hover:text-[var(--c-text)] hover:bg-[var(--c-hover)]'
                       }`}>
                       {s}
                     </button>
@@ -199,13 +197,13 @@ export function PropertiesPanel({ open, onToggle, showTextOptions, showConnector
                 <div className="flex gap-1">
                   <button onClick={applyBold} title={t.textOptions.bold}
                     className={`p-1 rounded transition-colors ${
-                      textBold ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-[#2e3144]'
+                      textBold ? 'bg-blue-600 text-white' : 'text-[var(--c-muted)] hover:text-[var(--c-text)] hover:bg-[var(--c-hover)]'
                     }`}>
                     <Bold size={13} />
                   </button>
                   <button onClick={applyItalic} title={t.textOptions.italic}
                     className={`p-1 rounded transition-colors ${
-                      textItalic ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-[#2e3144]'
+                      textItalic ? 'bg-blue-600 text-white' : 'text-[var(--c-muted)] hover:text-[var(--c-text)] hover:bg-[var(--c-hover)]'
                     }`}>
                     <Italic size={13} />
                   </button>
@@ -221,7 +219,7 @@ export function PropertiesPanel({ open, onToggle, showTextOptions, showConnector
               <Section label={ts.connector}>
                 <button onClick={toggleCurved}
                   className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs transition-colors w-fit ${
-                    selectedConn.curved ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-[#2e3144]'
+                    selectedConn.curved ? 'bg-blue-600 text-white' : 'text-[var(--c-muted)] hover:text-[var(--c-text)] hover:bg-[var(--c-hover)]'
                   }`}>
                   {selectedConn.curved ? '⌒' : '—'}
                   <span>{selectedConn.curved ? t.connectorOptions.curved : t.connectorOptions.straight}</span>
@@ -231,10 +229,10 @@ export function PropertiesPanel({ open, onToggle, showTextOptions, showConnector
           )}
         </div>
 
-        {/* Toggle tab — always at left edge when closed */}
+        {/* Toggle tab */}
         <button
           onClick={onToggle}
-          className="flex items-center justify-center w-4 shrink-0 bg-[#22242f] border border-l-0 border-[#3a3d4d] rounded-r-lg shadow-xl text-gray-500 hover:text-white transition-colors"
+          className="flex items-center justify-center w-4 shrink-0 bg-[var(--c-panel)] border border-l-0 border-[var(--c-border)] rounded-r-lg shadow-xl text-[var(--c-subtle)] hover:text-[var(--c-text)] transition-colors"
           style={{ minHeight: 48 }}
         >
           {open ? <ChevronLeft size={11} /> : <ChevronRight size={11} />}

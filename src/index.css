@@ -19,9 +19,48 @@ html, body, #root {
   overflow: hidden;
 }
 
+:root {
+  --c-bg:        #1a1b23;
+  --c-panel:     #22242f;
+  --c-panel-alt: #161820;
+  --c-border:    #3a3d4d;
+  --c-hover:     #2e3144;
+  --c-text:      #e2e4ec;
+  --c-muted:     #9ca3af;
+  --c-subtle:    #6b7280;
+  --c-grid:      #2a2d3a;
+  --c-tip:       #0d0e14;
+}
+
+[data-theme="light"] {
+  --c-bg:        #f0f2f5;
+  --c-panel:     #ffffff;
+  --c-panel-alt: #f3f4f6;
+  --c-border:    #e2e8f0;
+  --c-hover:     #eef2f8;
+  --c-text:      #1e293b;
+  --c-muted:     #64748b;
+  --c-subtle:    #94a3b8;
+  --c-grid:      #dde3ec;
+  --c-tip:       #1e293b;
+}
+
+[data-theme="sepia"] {
+  --c-bg:        #f5efe0;
+  --c-panel:     #ede3cc;
+  --c-panel-alt: #e6d9bf;
+  --c-border:    #c9b899;
+  --c-hover:     #e4d9c2;
+  --c-text:      #3b2f1e;
+  --c-muted:     #7d6a52;
+  --c-subtle:    #a09378;
+  --c-grid:      #d6c9a8;
+  --c-tip:       #2a1f12;
+}
+
 body {
-  background: #1a1b23;
-  color: #e2e4ec;
+  background: var(--c-bg);
+  color: var(--c-text);
   font-family: system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
