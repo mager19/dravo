@@ -46,16 +46,16 @@ html, body, #root {
 }
 
 [data-theme="sepia"] {
-  --c-bg:        #f5efe0;
-  --c-panel:     #ede3cc;
-  --c-panel-alt: #e6d9bf;
-  --c-border:    #c9b899;
-  --c-hover:     #e4d9c2;
-  --c-text:      #3b2f1e;
-  --c-muted:     #7d6a52;
-  --c-subtle:    #a09378;
-  --c-grid:      #d6c9a8;
-  --c-tip:       #2a1f12;
+  --c-bg:        #e8dfc8;
+  --c-panel:     #ddd3b8;
+  --c-panel-alt: #d5c9a8;
+  --c-border:    #b8a882;
+  --c-hover:     #d0c4a4;
+  --c-text:      #2e2416;
+  --c-muted:     #6e5c42;
+  --c-subtle:    #8c7a60;
+  --c-grid:      #c4b590;
+  --c-tip:       #1e1509;
 }
 
 body {
