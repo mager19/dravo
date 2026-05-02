@@ -20,6 +20,7 @@ export function StatusBar() {
       <span>{toolName}</span>
       <span>x:{mouse.x} y:{mouse.y}</span>
       <span>{t.zoom} {Math.round(stageScale * 100)}%</span>
+      <span className="opacity-40">v{__APP_VERSION__}</span>
     </div>
   )
 }
