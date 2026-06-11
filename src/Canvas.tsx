@@ -252,7 +252,7 @@ function ConnectorNode({ shape, shapes, isSelected, onSelect, onRegister, onDblC
           fill="transparent"
           opacity={shape.opacity}
           hitStrokeWidth={16}
-          onClick={onSelect}
+          onMouseDown={(e) => { if (e.evt.button === 0 && !e.evt.altKey) onSelect() }}
           onTap={onSelect}
           onDblClick={onDblClick}
         />
@@ -407,7 +407,12 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
     opacity: shape.opacity,
     draggable: tool === 'select',
     dragBoundFunc,
-    onClick: onSelect,
+    // selección en mousedown: si el gesto termina en drag (>3px), Konva no
+    // dispara click y el shape se movería sin quedar nunca seleccionado
+    onMouseDown: (e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (e.evt.button !== 0 || e.evt.altKey) return
+      onSelect(e)
+    },
     onTap: () => onSelect({} as Konva.KonvaEventObject<MouseEvent>),
     // snapshot al iniciar el gesto: el store aún tiene el estado pre-drag
     onDragStart: () => useStore.getState().snapshot(),
@@ -429,7 +434,7 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
         x={shape.x} y={shape.y}
         draggable={tool === 'select'} opacity={shape.opacity}
         dragBoundFunc={dragBoundFunc}
-        onClick={onSelect}
+        onMouseDown={common.onMouseDown}
         onTap={() => onSelect({} as Konva.KonvaEventObject<MouseEvent>)}
         onDblClick={onDblClick}
         onDragStart={common.onDragStart}
@@ -470,7 +475,7 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
         x={shape.x} y={shape.y}
         draggable={tool === 'select'} opacity={shape.opacity}
         dragBoundFunc={dragBoundFunc}
-        onClick={onSelect}
+        onMouseDown={common.onMouseDown}
         onTap={() => onSelect({} as Konva.KonvaEventObject<MouseEvent>)}
         onDblClick={onDblClick}
         onDragStart={common.onDragStart}
@@ -520,7 +525,7 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
         fill="transparent" stroke="transparent" strokeWidth={0}
       />
     ) : (
-      <Line ref={shapeRef as React.RefObject<Konva.Line>} {...common} points={shape.points} fill="transparent" />
+      <Line ref={shapeRef as React.RefObject<Konva.Line>} {...common} hitStrokeWidth={12} points={shape.points} fill="transparent" />
     )
   } else if (shape.type === 'arrow') {
     node = shape.rough ? (
@@ -550,7 +555,7 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
         fill="transparent" stroke="transparent" strokeWidth={0}
       />
     ) : (
-      <Arrow ref={shapeRef as React.RefObject<Konva.Arrow>} {...common} points={shape.points} fill={shape.strokeColor} pointerLength={10} pointerWidth={8} />
+      <Arrow ref={shapeRef as React.RefObject<Konva.Arrow>} {...common} hitStrokeWidth={12} points={shape.points} fill={shape.strokeColor} pointerLength={10} pointerWidth={8} />
     )
   } else if (shape.type === 'freehand') {
     const fh = shape as FreehandShape
@@ -568,7 +573,7 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
         y={fMinY}
         draggable={tool === 'select'}
         dragBoundFunc={dragBoundFunc}
-        onClick={onSelect}
+        onMouseDown={common.onMouseDown}
         onTap={() => onSelect({} as Konva.KonvaEventObject<MouseEvent>)}
         onDragStart={common.onDragStart}
         onDragEnd={(e: Konva.KonvaEventObject<DragEvent>) => {
@@ -607,7 +612,7 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
       <Text
         ref={shapeRef as React.RefObject<Konva.Text>}
         draggable={common.draggable}
-        onClick={common.onClick}
+        onMouseDown={common.onMouseDown}
         onTap={common.onTap}
         onDragStart={common.onDragStart}
         onDragEnd={common.onDragEnd}
@@ -978,8 +983,10 @@ export function Canvas() {
     const shape = useStore.getState().shapes.find(s => s.id === draftId)
     if (shape) {
       const MIN = 20
+      let kept = true
       if (shape.type === 'rect' && Math.abs(shape.width) < MIN && Math.abs(shape.height) < MIN) {
         deleteShape(draftId!)
+        kept = false
       } else if (shape.type === 'rect') {
         // Normalize so width/height are always positive — negative values break Konva's Transformer
         if (shape.width < 0 || shape.height < 0) {
@@ -992,8 +999,16 @@ export function Canvas() {
         }
       } else if (shape.type === 'ellipse' && shape.radiusX < MIN / 2 && shape.radiusY < MIN / 2) {
         deleteShape(draftId!)
+        kept = false
       } else if ((shape.type === 'line' || shape.type === 'arrow') && Math.hypot(shape.points[2] - shape.points[0], shape.points[3] - shape.points[1]) < MIN) {
         deleteShape(draftId!)
+        kept = false
+      }
+      // Al terminar de dibujar, volver a select con el shape seleccionado
+      // (como connector y text; freehand mantiene el tool para encadenar trazos)
+      if (kept && shape.type !== 'freehand') {
+        setTool('select')
+        setSelectedIds([draftId!])
       }
     }
     setDraftId(null)
