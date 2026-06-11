@@ -31,7 +31,7 @@ Barra contextual que aparece al seleccionar múltiples shapes.
 - Distribuir: espacio equidistante horizontal y vertical
 - Referencia: el bounding box de la selección completa
 
-### Group & Ungroup
+### ✅ Group & Ungroup
 Agrupar shapes para moverlos y transformarlos juntos.
 - Tipo `group` en el store con `childIds: string[]`
 - Hijos siguen siendo shapes planos con un `groupId`

@@ -3,13 +3,14 @@ import type { ConnectorShape, Shape } from './types'
 import { T } from './i18n'
 
 export function ConnectorOptions() {
-  const { shapes, selectedIds, updateShape, lang } = useStore()
+  const { shapes, selectedIds, updateShape, snapshot, lang } = useStore()
   const t = T[lang]
   const shape = selectedIds.length === 1 ? shapes.find(s => s.id === selectedIds[0]) : null
   if (!shape || shape.type !== 'connector') return null
   const conn = shape as ConnectorShape
 
   const toggleCurved = () => {
+    snapshot()
     updateShape(conn.id, {
       curved: !conn.curved,
       controlPoint: undefined,

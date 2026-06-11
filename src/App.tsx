@@ -8,6 +8,7 @@ import { LayersPanel } from './LayersPanel'
 import { ColorPicker } from './ColorPicker'
 import { TextOptions } from './TextOptions'
 import { ConnectorOptions } from './ConnectorOptions'
+import { GroupOptions } from './GroupOptions'
 import { useStore } from './store'
 import type { TextShape } from './types'
 
@@ -58,6 +59,7 @@ function App() {
       <div className="absolute bottom-4 sm:bottom-6 left-2 right-2 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-10 flex flex-col items-center gap-2">
         {showOptions && showTextOptions && <TextOptions />}
         {showOptions && showConnectorOptions && <ConnectorOptions />}
+        <GroupOptions />
         <Toolbar
           onOpenJson={() => setShowJson(true)}
           onOpenHelp={() => setShowWelcome(true)}

@@ -55,6 +55,10 @@ export const T = {
       straight: 'Recto',
       label:    'Etiqueta del conector',
     },
+    groupOptions: {
+      group:   'Agrupar',
+      ungroup: 'Desagrupar',
+    },
     layers: {
       title:     'Elementos',
       empty:     'El canvas está vacío',
@@ -68,6 +72,7 @@ export const T = {
         freehand:  'Trazo',
         text:      'Texto',
         connector: 'Conector',
+        group:     'Grupo',
       },
     },
     statusBar: {
@@ -119,6 +124,8 @@ export const T = {
         { key: 'Del',        desc: 'Borrar shape seleccionado' },
         { key: '↑↓←→',      desc: 'Mover selección · Shift para paso mayor' },
         { key: 'G',          desc: 'Activar / desactivar grilla' },
+        { key: '⌘G',         desc: 'Agrupar selección' },
+        { key: '⌘⇧G',        desc: 'Desagrupar' },
         { key: 'Scroll',     desc: 'Zoom · Alt+arrastrar para mover el canvas' },
       ],
     },
@@ -178,6 +185,10 @@ export const T = {
       straight: 'Straight',
       label:    'Connector label',
     },
+    groupOptions: {
+      group:   'Group',
+      ungroup: 'Ungroup',
+    },
     layers: {
       title:     'Elements',
       empty:     'Canvas is empty',
@@ -191,6 +202,7 @@ export const T = {
         freehand:  'Freehand',
         text:      'Text',
         connector: 'Connector',
+        group:     'Group',
       },
     },
     statusBar: {
@@ -242,6 +254,8 @@ export const T = {
         { key: 'Del',        desc: 'Delete selected shape' },
         { key: '↑↓←→',      desc: 'Move selection · Shift for larger step' },
         { key: 'G',          desc: 'Toggle grid on / off' },
+        { key: '⌘G',         desc: 'Group selection' },
+        { key: '⌘⇧G',        desc: 'Ungroup' },
         { key: 'Scroll',     desc: 'Zoom · Alt+drag to pan the canvas' },
       ],
     },

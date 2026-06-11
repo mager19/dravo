@@ -27,6 +27,7 @@ interface ShapeBase {
   opacity: number
   rough?: boolean
   rotation?: number
+  groupId?: string
 }
 
 export interface RectShape extends ShapeBase {
@@ -90,6 +91,11 @@ export interface TextShape extends ShapeBase {
   italic: boolean
 }
 
+export interface GroupShape extends ShapeBase {
+  type: 'group'
+  childIds: string[]
+}
+
 export type Shape =
   | RectShape
   | EllipseShape
@@ -98,6 +104,7 @@ export type Shape =
   | FreehandShape
   | TextShape
   | ConnectorShape
+  | GroupShape
 
 import type { Lang } from './i18n'
 export type { Lang }

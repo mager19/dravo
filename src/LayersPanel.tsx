@@ -1,7 +1,7 @@
-import { Square, Circle, Minus, ArrowRight, Pencil, Type, Network, Copy, Trash2, X } from 'lucide-react'
+import { Square, Circle, Minus, ArrowRight, Pencil, Type, Network, Copy, Trash2, X, BoxSelect } from 'lucide-react'
 import { useStore } from './store'
 import { T } from './i18n'
-import type { Shape } from './types'
+import type { Shape, GroupShape } from './types'
 
 function shapeIcon(type: Shape['type']) {
   const s = 12
@@ -13,6 +13,7 @@ function shapeIcon(type: Shape['type']) {
     case 'freehand':  return <Pencil size={s} />
     case 'text':      return <Type size={s} />
     case 'connector': return <Network size={s} />
+    case 'group':     return <BoxSelect size={s} />
   }
 }
 
@@ -21,6 +22,7 @@ export function LayersPanel({ onClose }: { onClose: () => void }) {
   const t = T[lang].layers
 
   const getLabel = (shape: Shape): string => {
+    if (shape.type === 'group') return `${t.shapeNames.group} (${shape.childIds.length})`
     const base = t.shapeNames[shape.type]
     if (shape.type === 'text') return shape.text.slice(0, 24) || base
     if (shape.type === 'rect' || shape.type === 'ellipse') return shape.label ? `${base}: ${shape.label}` : base
@@ -29,9 +31,21 @@ export function LayersPanel({ onClose }: { onClose: () => void }) {
   }
 
   const handleSelect = (id: string, e: React.MouseEvent) => {
+    const store = useStore.getState()
+    const shape = store.shapes.find(s => s.id === id)
     if (e.shiftKey) {
-      const cur = useStore.getState().selectedIds
-      setSelectedIds(cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id])
+      if (shape?.type === 'group') {
+        const childIds = (shape as GroupShape).childIds
+        const allIn = childIds.every(cid => store.selectedIds.includes(cid))
+        setSelectedIds(allIn
+          ? store.selectedIds.filter(x => !childIds.includes(x))
+          : [...new Set([...store.selectedIds, ...childIds])])
+      } else {
+        const cur = store.selectedIds
+        setSelectedIds(cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id])
+      }
+    } else if (shape?.type === 'group') {
+      setSelectedIds((shape as GroupShape).childIds)
     } else {
       setSelectedIds([id])
     }
@@ -75,11 +89,16 @@ export function LayersPanel({ onClose }: { onClose: () => void }) {
           <p className="text-[var(--c-subtle)] text-xs text-center py-8">{t.empty}</p>
         ) : (
           reversed.map((shape) => {
-            const isSelected = selectedIds.includes(shape.id)
+            const isSelected = shape.type === 'group'
+              ? (shape as GroupShape).childIds.some(cid => selectedIds.includes(cid))
+              : selectedIds.includes(shape.id)
+            const isGroupMember = !!shape.groupId
             return (
               <div
                 key={shape.id}
-                className={`flex items-center gap-2 px-2 py-1.5 mx-1 rounded-lg cursor-pointer group select-none ${
+                className={`flex items-center gap-2 py-1.5 mx-1 rounded-lg cursor-pointer group select-none ${
+                  isGroupMember ? 'pl-5 pr-2' : 'px-2'
+                } ${
                   isSelected
                     ? 'bg-blue-600/20 text-[var(--c-text)]'
                     : 'text-[var(--c-muted)] hover:bg-[var(--c-hover)] hover:text-[var(--c-text)]'

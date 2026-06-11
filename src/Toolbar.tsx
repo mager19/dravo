@@ -18,7 +18,7 @@ export function Toolbar({ onOpenJson, onOpenHelp, onOpenLayers, layersOpen, opti
   optionsOpen: boolean
   onToggleOptions: () => void
 }) {
-  const { tool, setTool, undo, redo, clearCanvas, deleteSelectedShapes, copySelected, paste, duplicate, lang, setLang, gridEnabled, setGridEnabled, moveSelectedShapes, theme, setTheme } = useStore()
+  const { tool, setTool, undo, redo, clearCanvas, deleteSelectedShapes, copySelected, paste, duplicate, groupShapes, ungroupShapes, lang, setLang, gridEnabled, setGridEnabled, moveSelectedShapes, theme, setTheme } = useStore()
   const t = T[lang]
 
   const TOOLS: { tool: Tool; icon: React.ReactNode; label: string; shortcut?: string; mobileHide?: boolean }[] = [
@@ -85,6 +85,18 @@ export function Toolbar({ onOpenJson, onOpenHelp, onOpenLayers, layersOpen, opti
         if (e.key === 'c') { e.preventDefault(); copySelected(); return }
         if (e.key === 'v') { e.preventDefault(); paste(); return }
         if (e.key === 'd') { e.preventDefault(); duplicate(); return }
+        if (e.key === 'g') {
+          e.preventDefault()
+          if (e.shiftKey) {
+            const { selectedIds, shapes } = useStore.getState()
+            const groupIds = [...new Set(selectedIds.map(id => shapes.find(s => s.id === id)?.groupId).filter((g): g is string => !!g))]
+            if (groupIds.length === 1) ungroupShapes(groupIds[0])
+          } else {
+            const { selectedIds } = useStore.getState()
+            if (selectedIds.length >= 2) groupShapes(selectedIds)
+          }
+          return
+        }
         return
       }
       if (e.key.toLowerCase() === 'g') { setGridEnabled(!useStore.getState().gridEnabled); return }
@@ -94,7 +106,7 @@ export function Toolbar({ onOpenJson, onOpenHelp, onOpenLayers, layersOpen, opti
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [setTool, undo, redo, deleteSelectedShapes, copySelected, paste, duplicate, moveSelectedShapes])
+  }, [setTool, undo, redo, deleteSelectedShapes, copySelected, paste, duplicate, groupShapes, ungroupShapes, moveSelectedShapes])
 
   return (
     <div className="w-full sm:w-auto overflow-x-auto sm:overflow-visible scrollbar-none flex items-center gap-1 bg-[var(--c-panel)] border border-[var(--c-border)] rounded-xl px-2 py-1.5 shadow-xl">

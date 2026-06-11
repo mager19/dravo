@@ -16,7 +16,7 @@ export function TextOptions() {
   const {
     textFontSize, textFontFamily, textBold, textItalic,
     setTextFontSize, setTextFontFamily, setTextBold, setTextItalic,
-    selectedIds, shapes, updateShape,
+    selectedIds, shapes, updateShape, snapshot,
   } = useStore()
 
   const selectedId = selectedIds.length === 1 ? selectedIds[0] : null
@@ -26,21 +26,33 @@ export function TextOptions() {
 
   const applyFont = (value: string) => {
     setTextFontFamily(value)
-    if (selectedText) updateShape(selectedText.id, { fontFamily: value } as Partial<TextShape>)
+    if (selectedText && selectedText.fontFamily !== value) {
+      snapshot()
+      updateShape(selectedText.id, { fontFamily: value } as Partial<TextShape>)
+    }
   }
   const applySize = (size: number) => {
     setTextFontSize(size)
-    if (selectedText) updateShape(selectedText.id, { fontSize: size } as Partial<TextShape>)
+    if (selectedText && selectedText.fontSize !== size) {
+      snapshot()
+      updateShape(selectedText.id, { fontSize: size } as Partial<TextShape>)
+    }
   }
   const applyBold = () => {
     const next = !textBold
     setTextBold(next)
-    if (selectedText) updateShape(selectedText.id, { bold: next } as Partial<TextShape>)
+    if (selectedText) {
+      snapshot()
+      updateShape(selectedText.id, { bold: next } as Partial<TextShape>)
+    }
   }
   const applyItalic = () => {
     const next = !textItalic
     setTextItalic(next)
-    if (selectedText) updateShape(selectedText.id, { italic: next } as Partial<TextShape>)
+    if (selectedText) {
+      snapshot()
+      updateShape(selectedText.id, { italic: next } as Partial<TextShape>)
+    }
   }
 
   return (

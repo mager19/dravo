@@ -5,7 +5,7 @@ import { T } from './i18n'
 import { sanitizeShapes } from './sanitize'
 
 export function ImportExportModal({ onClose }: { onClose: () => void }) {
-  const { shapes, setShapes, lang } = useStore()
+  const { shapes, setShapes, snapshot, lang } = useStore()
   const t = T[lang].importExport
   const [tab, setTab] = useState<'export' | 'import'>('export')
   const [copied, setCopied] = useState(false)
@@ -26,6 +26,7 @@ export function ImportExportModal({ onClose }: { onClose: () => void }) {
       const parsed = JSON.parse(importText)
       const sanitized = sanitizeShapes(parsed, lang)
       if (sanitized.length === 0) { setError(t.noShapes); return }
+      snapshot()
       setShapes(sanitized)
       onClose()
     } catch (e) {
