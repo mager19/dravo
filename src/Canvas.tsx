@@ -637,6 +637,7 @@ const ShapeNode = memo(function ShapeNode({ shape, onSelect, onClickSelect, onCh
         onMouseDown={common.onMouseDown}
         onClick={common.onClick}
         onTap={common.onTap}
+        onDblClick={common.onDblClick}
         onDragStart={common.onDragStart}
         onDragMove={common.onDragMove}
         onDragEnd={common.onDragEnd}
@@ -735,7 +736,8 @@ export function Canvas() {
 
   const [drawing, setDrawing] = useState(false)
   const [draftId, setDraftId] = useState<string | null>(null)
-  const [textInput, setTextInput] = useState<{ x: number; y: number; stageX: number; stageY: number } | null>(null)
+  // editingId/initial presentes = editar un TextShape existente; ausentes = crear
+  const [textInput, setTextInput] = useState<{ x: number; y: number; stageX: number; stageY: number; editingId?: string; initial?: string } | null>(null)
   const textRef = useRef<HTMLTextAreaElement>(null)
   const isPanning = useRef(false)
   const lastPointer = useRef<Point>({ x: 0, y: 0 })
@@ -866,6 +868,17 @@ export function Canvas() {
     if (st.tool !== 'select') return
     if (shape.type === 'rect' || shape.type === 'ellipse') {
       openLabelEditor(shape)
+      return
+    }
+    if (shape.type === 'text') {
+      // editar el texto en el mismo textarea de creación, sobre el shape
+      const screenX = shape.x * st.stageScale + st.stagePos.x
+      const screenY = shape.y * st.stageScale + st.stagePos.y
+      st.setTextFontSize(shape.fontSize)
+      st.setTextFontFamily(shape.fontFamily)
+      st.setTextBold(shape.bold)
+      st.setTextItalic(shape.italic)
+      setTextInput({ x: shape.x, y: shape.y, stageX: screenX, stageY: screenY, editingId: shape.id, initial: shape.text })
       return
     }
     if (shape.type === 'connector') {
@@ -1005,7 +1018,10 @@ export function Canvas() {
 
   useEffect(() => {
     if (textInput) {
-      setTimeout(() => textRef.current?.focus(), 0)
+      setTimeout(() => {
+        textRef.current?.focus()
+        if (textInput.editingId) textRef.current?.select()
+      }, 0)
     }
   }, [textInput])
 
@@ -1371,12 +1387,25 @@ export function Canvas() {
   }, [deleteSelectedShapes, setConnStart, setConnDraftEnd])
 
   const commitText = useCallback((value: string, switchToSelect = false) => {
-    if (textInput && value.trim()) {
+    const trimmed = value.trim()
+    if (textInput?.editingId) {
+      // edición de un texto existente
+      const id = textInput.editingId
+      const current = useStore.getState().shapes.find(s => s.id === id)
+      if (current?.type === 'text') {
+        if (!trimmed) {
+          deleteShape(id)
+        } else if (trimmed !== current.text) {
+          useStore.getState().snapshot()
+          updateShape(id, { text: trimmed } as Partial<Shape>)
+        }
+      }
+    } else if (textInput && trimmed) {
       const id = nanoid()
       addShape({
         id, type: 'text',
         x: textInput.x, y: textInput.y,
-        text: value.trim(),
+        text: trimmed,
         fontSize: textFontSize,
         fontFamily: textFontFamily,
         bold: textBold,
@@ -1386,7 +1415,7 @@ export function Canvas() {
     }
     setTextInput(null)
     if (switchToSelect) setTool('select')
-  }, [textInput, strokeColor, strokeWidth, strokeDash, opacity, textFontSize, textFontFamily, textBold, textItalic, addShape, setTool])
+  }, [textInput, strokeColor, strokeWidth, strokeDash, opacity, textFontSize, textFontFamily, textBold, textItalic, addShape, deleteShape, updateShape, setTool])
 
   const cursorClass = tool === 'select' ? 'cursor-default'
     : tool === 'text' ? 'cursor-text'
@@ -1439,6 +1468,8 @@ export function Canvas() {
           })}
           {shapes.map((shape) =>
             shape.type === 'group' ? null :
+            // el texto en edición se oculta: el textarea lo reemplaza en pantalla
+            shape.type === 'text' && textInput?.editingId === shape.id ? null :
             shape.type === 'connector' ? (
               <ConnectorNode
                 key={shape.id}
@@ -1619,17 +1650,18 @@ export function Canvas() {
         <textarea
           ref={textRef}
           autoFocus
+          defaultValue={textInput.initial ?? ''}
           className="absolute bg-transparent border-none outline-none resize-none"
           style={{
             left: textInput.stageX,
             top: textInput.stageY,
-            fontSize: textFontSize,
+            fontSize: textFontSize * stageScale,
             fontFamily: textFontFamily,
             fontWeight: textBold ? 'bold' : 'normal',
             fontStyle: textItalic ? 'italic' : 'normal',
             color: strokeColor,
             minWidth: 120,
-            minHeight: textFontSize + 8,
+            minHeight: textFontSize * stageScale + 8,
             lineHeight: 1.3,
           }}
           onBlur={(e) => commitText(e.target.value, true)}
