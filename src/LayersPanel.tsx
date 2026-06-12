@@ -33,21 +33,21 @@ export function LayersPanel({ onClose }: { onClose: () => void }) {
   const handleSelect = (id: string, e: React.MouseEvent) => {
     const store = useStore.getState()
     const shape = store.shapes.find(s => s.id === id)
+    if (!shape) return
+    // grupos y sus miembros se seleccionan como unidad — nunca miembros sueltos
+    const unit = shape.type === 'group'
+      ? (shape as GroupShape).childIds
+      : shape.groupId
+        ? store.shapes.filter(s => s.groupId === shape.groupId).map(s => s.id)
+        : [id]
     if (e.shiftKey) {
-      if (shape?.type === 'group') {
-        const childIds = (shape as GroupShape).childIds
-        const allIn = childIds.every(cid => store.selectedIds.includes(cid))
-        setSelectedIds(allIn
-          ? store.selectedIds.filter(x => !childIds.includes(x))
-          : [...new Set([...store.selectedIds, ...childIds])])
-      } else {
-        const cur = store.selectedIds
-        setSelectedIds(cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id])
-      }
-    } else if (shape?.type === 'group') {
-      setSelectedIds((shape as GroupShape).childIds)
+      const cur = store.selectedIds
+      const allIn = unit.every(uid => cur.includes(uid))
+      setSelectedIds(allIn
+        ? cur.filter(x => !unit.includes(x))
+        : [...new Set([...cur, ...unit])])
     } else {
-      setSelectedIds([id])
+      setSelectedIds(unit)
     }
   }
 

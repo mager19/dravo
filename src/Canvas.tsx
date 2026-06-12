@@ -371,13 +371,15 @@ function ConnectorNode({ shape, shapes, isSelected, onSelect, onRegister, onDblC
   )
 }
 
-function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegister, onDblClick }: {
+function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegister, onDblClick, onDragStartShape, onDragEndShape }: {
   shape: Shape
   isSelected: boolean
   onSelect: (e: Konva.KonvaEventObject<MouseEvent>) => void
   onChange: (patch: Partial<Shape>) => void
   onRegister: (id: string, node: Konva.Node | null) => void
   onDblClick?: () => void
+  onDragStartShape: (id: string, node: Konva.Node) => void
+  onDragEndShape: (id: string, node: Konva.Node) => void
 }) {
   const shapeRef = useRef<Konva.Node>(null)
   const tool = useStore(s => s.tool)
@@ -414,11 +416,8 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
       onSelect(e)
     },
     onTap: () => onSelect({} as Konva.KonvaEventObject<MouseEvent>),
-    // snapshot al iniciar el gesto: el store aún tiene el estado pre-drag
-    onDragStart: () => useStore.getState().snapshot(),
-    onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => {
-      onChange({ x: e.target.x(), y: e.target.y() } as Partial<Shape>)
-    },
+    onDragStart: (e: Konva.KonvaEventObject<DragEvent>) => onDragStartShape(shape.id, e.target),
+    onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => onDragEndShape(shape.id, e.target),
   }
 
   let node: React.ReactNode = null
@@ -438,7 +437,7 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
         onTap={() => onSelect({} as Konva.KonvaEventObject<MouseEvent>)}
         onDblClick={onDblClick}
         onDragStart={common.onDragStart}
-        onDragEnd={(e: Konva.KonvaEventObject<DragEvent>) => onChange({ x: e.target.x(), y: e.target.y() } as Partial<Shape>)}
+        onDragEnd={common.onDragEnd}
         rotation={shape.rotation ?? 0}
         onTransformEnd={() => {
           const g = shapeRef.current as Konva.Group
@@ -479,7 +478,7 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
         onTap={() => onSelect({} as Konva.KonvaEventObject<MouseEvent>)}
         onDblClick={onDblClick}
         onDragStart={common.onDragStart}
-        onDragEnd={(e: Konva.KonvaEventObject<DragEvent>) => onChange({ x: e.target.x(), y: e.target.y() } as Partial<Shape>)}
+        onDragEnd={common.onDragEnd}
         rotation={shape.rotation ?? 0}
         onTransformEnd={() => {
           const g = shapeRef.current as Konva.Group
@@ -576,11 +575,7 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
         onMouseDown={common.onMouseDown}
         onTap={() => onSelect({} as Konva.KonvaEventObject<MouseEvent>)}
         onDragStart={common.onDragStart}
-        onDragEnd={(e: Konva.KonvaEventObject<DragEvent>) => {
-          const dx = e.target.x() - fMinX
-          const dy = e.target.y() - fMinY
-          onChange({ points: fh.points.map(([px, py, pp]) => [px + dx, py + dy, pp]) } as Partial<Shape>)
-        }}
+        onDragEnd={common.onDragEnd}
         opacity={shape.opacity}
       >
         <KonvaShape
@@ -690,6 +685,13 @@ export function Canvas() {
     addShape, updateShape, deleteShape, deleteSelectedShapes,
   } = useStore()
 
+  const [viewport, setViewport] = useState({ w: window.innerWidth, h: window.innerHeight })
+  useEffect(() => {
+    const onResize = () => setViewport({ w: window.innerWidth, h: window.innerHeight })
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
   const [drawing, setDrawing] = useState(false)
   const [draftId, setDraftId] = useState<string | null>(null)
   const [textInput, setTextInput] = useState<{ x: number; y: number; stageX: number; stageY: number } | null>(null)
@@ -753,6 +755,58 @@ export function Canvas() {
     } else {
       shapeNodeRefs.current.delete(id)
     }
+  }, [])
+
+  // Drag grupal: el Transformer de Konva ya arrastra nativamente todos los
+  // nodos adjuntos (_proxyDrag) y cada uno dispara sus propios eventos drag.
+  // Aquí solo se coordina el commit: un snapshot por gesto, un translate por
+  // nodo al soltar, y los conectores seleccionados (excluidos del Transformer,
+  // no disparan drag propio) se trasladan cuando termina el último nodo.
+  const dragGesture = useRef<{
+    starts: Map<string, Point>
+    active: Set<string>
+    connectorIds: string[]
+  } | null>(null)
+
+  const handleShapeDragStart = useCallback((id: string, node: Konva.Node) => {
+    let g = dragGesture.current
+    if (!g) {
+      // primer dragstart del gesto: snapshot (el store aún tiene el estado
+      // pre-drag) y captura del inicio de toda la selección — los dragstart
+      // de los nodos proxied llegan con la posición ya desplazada
+      useStore.getState().snapshot()
+      const { selectedIds: sel, shapes: currentShapes } = useStore.getState()
+      g = { starts: new Map(), active: new Set(), connectorIds: [] }
+      sel.forEach(sid => {
+        const s = currentShapes.find(x => x.id === sid)
+        if (!s) return
+        if (s.type === 'connector') { g!.connectorIds.push(sid); return }
+        const n = shapeNodeRefs.current.get(sid)
+        if (n) g!.starts.set(sid, n.position())
+      })
+      dragGesture.current = g
+    }
+    if (!g.starts.has(id)) g.starts.set(id, node.position())
+    g.active.add(id)
+  }, [])
+
+  const handleShapeDragEnd = useCallback((id: string, node: Konva.Node) => {
+    const g = dragGesture.current
+    const start = g?.starts.get(id)
+    if (!g || !start) return
+    g.active.delete(id)
+    const dx = node.x() - start.x
+    const dy = node.y() - start.y
+    // line/arrow se dibujan desde points con el nodo en su posición base:
+    // el delta se persiste en los points y el nodo vuelve a donde empezó
+    const sh = useStore.getState().shapes.find(s => s.id === id)
+    if (sh && (sh.type === 'line' || sh.type === 'arrow')) node.position(start)
+    const ids = [id]
+    if (g.active.size === 0) {
+      ids.push(...g.connectorIds)
+      dragGesture.current = null
+    }
+    useStore.getState().translateShapes(ids, dx, dy)
   }, [])
 
   // Sync Transformer nodes when selectedIds changes — excluye conectores
@@ -970,7 +1024,16 @@ export function Canvas() {
           return rectsIntersect(bounds, currentSelBox)
         })
         if (selected.length > 0) {
-          setSelectedIds(selected.map(s => s.id))
+          // tocar cualquier miembro incorpora el grupo completo a la selección
+          const ids = new Set<string>()
+          selected.forEach(s => {
+            if (s.groupId) {
+              currentShapes.forEach(m => { if (m.groupId === s.groupId) ids.add(m.id) })
+            } else {
+              ids.add(s.id)
+            }
+          })
+          setSelectedIds([...ids])
         }
       }
       selStartPos.current = null
@@ -1061,8 +1124,8 @@ export function Canvas() {
     <div className={`w-full h-full relative ${cursorClass}`}>
       <Stage
         ref={stageRef}
-        width={window.innerWidth}
-        height={window.innerHeight}
+        width={viewport.w}
+        height={viewport.h}
         scaleX={stageScale}
         scaleY={stageScale}
         x={stagePos.x}
@@ -1142,24 +1205,27 @@ export function Canvas() {
                 isSelected={selectedIds.includes(shape.id)}
                 onSelect={(e: Konva.KonvaEventObject<MouseEvent>) => {
                   if (tool === 'delete') { deleteShape(shape.id); return }
-                  if (tool === 'select') {
-                    if (e.evt?.shiftKey) {
-                      const current = useStore.getState().selectedIds
-                      if (current.includes(shape.id)) {
-                        setSelectedIds(current.filter(id => id !== shape.id))
-                      } else {
-                        setSelectedIds([...current, shape.id])
-                      }
-                    } else if ((shape as Shape).groupId) {
-                      const members = useStore.getState().shapes.filter(s => s.groupId === (shape as Shape).groupId).map(s => s.id)
-                      setSelectedIds(members)
-                    } else {
-                      setSelectedIds([shape.id])
-                    }
+                  if (tool !== 'select') return
+                  const st = useStore.getState()
+                  // un grupo es una unidad: nunca se seleccionan miembros sueltos
+                  const gid = (shape as Shape).groupId
+                  const unit = gid
+                    ? st.shapes.filter(s => s.groupId === gid).map(s => s.id)
+                    : [shape.id]
+                  if (e.evt?.shiftKey) {
+                    const current = st.selectedIds
+                    const allIn = unit.every(id => current.includes(id))
+                    setSelectedIds(allIn
+                      ? current.filter(id => !unit.includes(id))
+                      : [...new Set([...current, ...unit])])
+                  } else {
+                    setSelectedIds(unit)
                   }
                 }}
                 onChange={(patch) => updateShape(shape.id, patch)}
                 onRegister={registerRef}
+                onDragStartShape={handleShapeDragStart}
+                onDragEndShape={handleShapeDragEnd}
                 onDblClick={() => {
                   if (tool !== 'select') return
                   if (shape.type !== 'rect' && shape.type !== 'ellipse') return
