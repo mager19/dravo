@@ -1,5 +1,6 @@
 import type { Shape, StrokeWidth, StrokeDash, AnchorSide, Lang, GroupShape } from './types'
 import { T } from './i18n'
+import { nanoid } from './utils'
 
 const VALID_TYPES = ['rect', 'ellipse', 'line', 'arrow', 'freehand', 'text', 'connector', 'group'] as const
 const VALID_WIDTHS: StrokeWidth[] = [1, 2, 4, 8]
@@ -58,7 +59,7 @@ function sanitizeOpacity(v: unknown): number {
 
 function sanitizeBase(r: Record<string, unknown>) {
   return {
-    id: sanitizeId(r.id) || Math.random().toString(36).slice(2, 10),
+    id: sanitizeId(r.id) || nanoid(),
     strokeColor: sanitizeColor(r.strokeColor),
     fillColor: sanitizeColor(r.fillColor),
     strokeWidth: sanitizeStrokeWidth(r.strokeWidth),

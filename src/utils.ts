@@ -1,3 +1,8 @@
+const ID_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+
 export function nanoid(): string {
-  return Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10)
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+  let id = ''
+  for (const b of bytes) id += ID_ALPHABET[b % ID_ALPHABET.length]
+  return id
 }
