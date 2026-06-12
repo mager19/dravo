@@ -16,6 +16,11 @@ import { getAnchorPos, getShapeAnchors, findNearestAnchor, findHoveredConnectabl
 import rough from 'roughjs'
 import type { Drawable } from 'roughjs/bin/core'
 
+// Konva no expone el CanvasRenderingContext2D nativo en su tipo público
+function rawCtx(ctx: Konva.Context): CanvasRenderingContext2D {
+  return (ctx as unknown as { _context: CanvasRenderingContext2D })._context
+}
+
 function hashSeed(id: string): number {
   let h = 0
   for (let i = 0; i < id.length; i++) h = Math.imul(31, h) + id.charCodeAt(i) | 0
@@ -119,7 +124,7 @@ function GridLayer({ stageScale, stagePos, gridColor }: { stageScale: number; st
         fill="transparent"
         stroke="transparent"
         sceneFunc={(ctx) => {
-          const raw = (ctx as any)._context as CanvasRenderingContext2D
+          const raw = rawCtx(ctx)
           raw.save()
           raw.strokeStyle = gridColor
           raw.lineWidth = lw
@@ -208,7 +213,7 @@ function ConnectorNode({ shape, shapes, isSelected, onSelect, onRegister, onDblC
         {isSelected && (
           <KonvaShape
             sceneFunc={(ctx) => {
-              const raw = (ctx as any)._context as CanvasRenderingContext2D
+              const raw = rawCtx(ctx)
               raw.save()
               raw.beginPath()
               raw.moveTo(sp.x, sp.y)
@@ -228,7 +233,7 @@ function ConnectorNode({ shape, shapes, isSelected, onSelect, onRegister, onDblC
           sceneFunc={(ctx, sh) => {
             // Bezier path via Konva ctx — on the hit canvas esto usa el color único
             // de la shape, lo que permite que el click detection funcione correctamente
-            const raw = (ctx as any)._context as CanvasRenderingContext2D
+            const raw = rawCtx(ctx)
             raw.beginPath()
             raw.moveTo(sp.x, sp.y)
             raw.quadraticCurveTo(cp.x, cp.y, ep.x, ep.y)
@@ -371,7 +376,7 @@ function ConnectorNode({ shape, shapes, isSelected, onSelect, onRegister, onDblC
   )
 }
 
-function ShapeNode({ shape, isSelected: _isSelected, onSelect, onClickSelect, onChange, onRegister, onDblClick, onDragStartShape, onDragMoveShape, onDragEndShape }: {
+function ShapeNode({ shape, onSelect, onClickSelect, onChange, onRegister, onDblClick, onDragStartShape, onDragMoveShape, onDragEndShape }: {
   shape: Shape
   isSelected: boolean
   onSelect: (e: Konva.KonvaEventObject<MouseEvent>) => void
@@ -459,7 +464,7 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onClickSelect, on
         {shape.rough ? (
           <>
             <KonvaShape listening={false} sceneFunc={(ctx, sh) => {
-              const raw = (ctx as any)._context as CanvasRenderingContext2D
+              const raw = rawCtx(ctx)
               const hasFill = shape.fillColor !== 'transparent'
               const d = rough.generator().rectangle(lx, ly, lw, lh, {
                 seed: hashSeed(shape.id), roughness: 1.5, strokeWidth: shape.strokeWidth,
@@ -503,7 +508,7 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onClickSelect, on
         {shape.rough ? (
           <>
             <KonvaShape listening={false} sceneFunc={(ctx, sh) => {
-              const raw = (ctx as any)._context as CanvasRenderingContext2D
+              const raw = rawCtx(ctx)
               const hasFill = shape.fillColor !== 'transparent'
               const d = rough.generator().ellipse(0, 0, shape.radiusX * 2, shape.radiusY * 2, {
                 seed: hashSeed(shape.id), roughness: 1.5, strokeWidth: shape.strokeWidth,
@@ -530,7 +535,7 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onClickSelect, on
         {...common}
         hitStrokeWidth={12}
         sceneFunc={(ctx, sh) => {
-          const raw = (ctx as any)._context as CanvasRenderingContext2D
+          const raw = rawCtx(ctx)
           const [x1, y1, x2, y2] = shape.points
           const d = rough.generator().line(x1, y1, x2, y2, { seed: hashSeed(shape.id), roughness: 1.5, strokeWidth: shape.strokeWidth })
           drawRoughOps(raw, d, shape.strokeColor, 'transparent', shape.strokeWidth)
@@ -548,7 +553,7 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onClickSelect, on
         {...common}
         hitStrokeWidth={12}
         sceneFunc={(ctx, sh) => {
-          const raw = (ctx as any)._context as CanvasRenderingContext2D
+          const raw = rawCtx(ctx)
           const [x1, y1, x2, y2] = shape.points
           const d = rough.generator().line(x1, y1, x2, y2, { seed: hashSeed(shape.id), roughness: 1.5, strokeWidth: shape.strokeWidth })
           drawRoughOps(raw, d, shape.strokeColor, 'transparent', shape.strokeWidth)
@@ -608,7 +613,7 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onClickSelect, on
             ctx.fillStrokeShape(sh)
           }}
           hitFunc={(ctx, sh) => {
-            const raw = (ctx as any)._context as CanvasRenderingContext2D
+            const raw = rawCtx(ctx)
             raw.beginPath()
             raw.rect(0, 0, fW, fH)
             ctx.fillStrokeShape(sh)
@@ -1064,7 +1069,7 @@ export function Canvas() {
     } else if (tool === 'freehand') {
       addShape({ ...base, type: 'freehand', points: [[pos.x, pos.y, 0.5]] } as FreehandShape)
     }
-  }, [tool, strokeColor, fillColor, strokeWidth, strokeDash, opacity, stageScale, getPointerPos, addShape, setSelectedIds, setConnStart, setConnDraftEnd])
+  }, [tool, strokeColor, fillColor, strokeWidth, strokeDash, opacity, roughEnabled, stageScale, getPointerPos, addShape, setSelectedIds, setConnStart, setConnDraftEnd])
 
   const handleMouseMove = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
     if (isPanning.current) {
@@ -1254,7 +1259,7 @@ export function Canvas() {
       }
     }
     setDraftId(null)
-  }, [drawing, draftId, deleteShape, updateShape, getPointerPos, stageScale, addShape, strokeColor, strokeWidth, setTool, tool, selBox, setSelectedIds])
+  }, [drawing, draftId, deleteShape, updateShape, getPointerPos, stageScale, addShape, strokeColor, strokeWidth, strokeDash, opacity, setTool, tool, selBox, setSelectedIds])
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {

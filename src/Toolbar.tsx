@@ -106,7 +106,7 @@ export function Toolbar({ onOpenJson, onOpenHelp, onOpenLayers, layersOpen, opti
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [setTool, undo, redo, deleteSelectedShapes, copySelected, paste, duplicate, groupShapes, ungroupShapes, moveSelectedShapes])
+  }, [setTool, undo, redo, deleteSelectedShapes, copySelected, paste, duplicate, groupShapes, ungroupShapes, moveSelectedShapes, setGridEnabled])
 
   return (
     <div className="w-full sm:w-auto overflow-x-auto sm:overflow-visible scrollbar-none flex items-center gap-1 bg-[var(--c-panel)] border border-[var(--c-border)] rounded-xl px-2 py-1.5 shadow-xl">

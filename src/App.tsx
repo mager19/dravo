@@ -36,6 +36,10 @@ function App() {
   const showTextOptions = tool === 'text' || isTextSelected || isLabelEditing
   const showConnectorOptions = !!(selectedShape?.type === 'connector')
 
+  // Sincroniza los pickers con el shape al cambiar la selección — corre solo
+  // en ese momento, a propósito: los setters de estilo escriben sobre la
+  // selección y re-ejecutar este efecto en cada cambio de store haría eco
+  const primarySelectedId = selectedIds.length === 1 ? selectedIds[0] : undefined
   useEffect(() => {
     if (!selectedShape) return
     setStrokeColor(selectedShape.strokeColor)
@@ -51,7 +55,8 @@ function App() {
       setTextBold(t.bold)
       setTextItalic(t.italic)
     }
-  }, [selectedIds[0]])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [primarySelectedId])
 
   return (
     <div className="w-full h-full relative overflow-hidden">
