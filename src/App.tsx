@@ -13,11 +13,19 @@ import { useStore } from './store'
 import type { TextShape } from './types'
 
 function App() {
+  const tool = useStore(s => s.tool)
+  const isLabelEditing = useStore(s => s.isLabelEditing)
+  const theme = useStore(s => s.theme)
+  // El selector devuelve el objeto del shape: misma referencia mientras ese
+  // shape no cambie — App no se re-renderiza por cambios ajenos del store
+  const selectedShape = useStore(s =>
+    s.selectedIds.length === 1 ? s.shapes.find(sh => sh.id === s.selectedIds[0]) : undefined
+  )
+  // Acciones: referencias estables, sin suscripción
   const {
-    tool, selectedIds, shapes, isLabelEditing, theme,
     setStrokeColor, setFillColor, setStrokeWidth, setStrokeDash, setOpacity,
     setTextFontSize, setTextFontFamily, setTextBold, setTextItalic, setRoughEnabled,
-  } = useStore()
+  } = useStore.getState()
 
   useEffect(() => { document.documentElement.setAttribute('data-theme', theme) }, [theme])
 
@@ -31,7 +39,6 @@ function App() {
     setShowWelcome(false)
   }
 
-  const selectedShape = selectedIds.length === 1 ? shapes.find(s => s.id === selectedIds[0]) : undefined
   const isTextSelected = selectedShape?.type === 'text'
   const showTextOptions = tool === 'text' || isTextSelected || isLabelEditing
   const showConnectorOptions = !!(selectedShape?.type === 'connector')
@@ -39,7 +46,7 @@ function App() {
   // Sincroniza los pickers con el shape al cambiar la selección — corre solo
   // en ese momento, a propósito: los setters de estilo escriben sobre la
   // selección y re-ejecutar este efecto en cada cambio de store haría eco
-  const primarySelectedId = selectedIds.length === 1 ? selectedIds[0] : undefined
+  const primarySelectedId = selectedShape?.id
   useEffect(() => {
     if (!selectedShape) return
     setStrokeColor(selectedShape.strokeColor)

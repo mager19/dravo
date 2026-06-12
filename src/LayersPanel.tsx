@@ -1,4 +1,5 @@
 import { Square, Circle, Minus, ArrowRight, Pencil, Type, Network, Copy, Trash2, X, BoxSelect } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 import { useStore } from './store'
 import { T } from './i18n'
 import type { Shape, GroupShape } from './types'
@@ -18,7 +19,10 @@ function shapeIcon(type: Shape['type']) {
 }
 
 export function LayersPanel({ onClose }: { onClose: () => void }) {
-  const { shapes, selectedIds, setSelectedIds, lang } = useStore()
+  const { shapes, selectedIds, lang } = useStore(useShallow(s => ({
+    shapes: s.shapes, selectedIds: s.selectedIds, lang: s.lang,
+  })))
+  const { setSelectedIds } = useStore.getState()
   const t = T[lang].layers
 
   const getLabel = (shape: Shape): string => {

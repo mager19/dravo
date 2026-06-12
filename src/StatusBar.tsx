@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useStore } from './store'
 import { T } from './i18n'
 
 export function StatusBar() {
-  const { tool, stageScale, lang } = useStore()
+  const { tool, stageScale, lang } = useStore(useShallow(s => ({
+    tool: s.tool, stageScale: s.stageScale, lang: s.lang,
+  })))
   const t = T[lang].statusBar
   const [mouse, setMouse] = useState({ x: 0, y: 0 })
 

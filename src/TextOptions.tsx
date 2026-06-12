@@ -1,4 +1,5 @@
 import { Bold, Italic } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 import { useStore } from './store'
 import type { TextShape } from './types'
 
@@ -13,16 +14,17 @@ const FONTS = [
 const SIZES = [12, 16, 20, 28, 36, 48]
 
 export function TextOptions() {
-  const {
-    textFontSize, textFontFamily, textBold, textItalic,
-    setTextFontSize, setTextFontFamily, setTextBold, setTextItalic,
-    selectedIds, shapes, updateShape, snapshot,
-  } = useStore()
-
-  const selectedId = selectedIds.length === 1 ? selectedIds[0] : null
-  const selectedText = selectedId
-    ? (shapes.find(s => s.id === selectedId && s.type === 'text') as TextShape | undefined)
-    : undefined
+  const { textFontSize, textFontFamily, textBold, textItalic } = useStore(useShallow(s => ({
+    textFontSize: s.textFontSize, textFontFamily: s.textFontFamily,
+    textBold: s.textBold, textItalic: s.textItalic,
+  })))
+  // referencia estable mientras el shape no cambie
+  const selectedText = useStore(s => {
+    const id = s.selectedIds.length === 1 ? s.selectedIds[0] : null
+    const sh = id ? s.shapes.find(x => x.id === id) : undefined
+    return sh?.type === 'text' ? (sh as TextShape) : undefined
+  })
+  const { setTextFontSize, setTextFontFamily, setTextBold, setTextItalic, updateShape, snapshot } = useStore.getState()
 
   const applyFont = (value: string) => {
     setTextFontFamily(value)

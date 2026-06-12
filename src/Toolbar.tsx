@@ -5,6 +5,7 @@ import {
   Moon, Sun, Coffee,
 } from 'lucide-react'
 import Konva from 'konva'
+import { useShallow } from 'zustand/react/shallow'
 import { useStore } from './store'
 import { T } from './i18n'
 import { Tooltip } from './Tooltip'
@@ -18,7 +19,10 @@ export function Toolbar({ onOpenJson, onOpenHelp, onOpenLayers, layersOpen, opti
   optionsOpen: boolean
   onToggleOptions: () => void
 }) {
-  const { tool, setTool, undo, redo, clearCanvas, deleteSelectedShapes, copySelected, paste, duplicate, groupShapes, ungroupShapes, lang, setLang, gridEnabled, setGridEnabled, moveSelectedShapes, theme, setTheme } = useStore()
+  const { tool, lang, gridEnabled, theme } = useStore(useShallow(s => ({
+    tool: s.tool, lang: s.lang, gridEnabled: s.gridEnabled, theme: s.theme,
+  })))
+  const { setTool, undo, redo, clearCanvas, deleteSelectedShapes, copySelected, paste, duplicate, groupShapes, ungroupShapes, setLang, setGridEnabled, moveSelectedShapes, setTheme } = useStore.getState()
   const t = T[lang]
 
   const TOOLS: { tool: Tool; icon: React.ReactNode; label: string; shortcut?: string; mobileHide?: boolean }[] = [

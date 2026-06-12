@@ -1,4 +1,5 @@
-import { useRef, useEffect, useState, useCallback } from 'react'
+import { useRef, useEffect, useState, useCallback, memo } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import Konva from 'konva'
 import { Stage, Layer, Rect, Ellipse, Line, Arrow, Shape as KonvaShape, Text, Transformer, Circle, Group } from 'react-konva'
 import { getStroke } from 'perfect-freehand'
@@ -145,13 +146,14 @@ function GridLayer({ stageScale, stagePos, gridColor }: { stageScale: number; st
   )
 }
 
-function ConnectorNode({ shape, shapes, isSelected, onSelect, onRegister, onDblClick }: {
+const ConnectorNode = memo(function ConnectorNode({ shape, shapes, isSelected, onSelect, onClickSelect, onRegister, onDblClick }: {
   shape: ConnectorShape
   shapes: Shape[]
   isSelected: boolean
-  onSelect: () => void
+  onSelect: (shape: ConnectorShape, e: Konva.KonvaEventObject<MouseEvent>) => void
+  onClickSelect: (shape: ConnectorShape) => void
   onRegister: (id: string, node: Konva.Node | null) => void
-  onDblClick?: () => void
+  onDblClick?: (shape: ConnectorShape) => void
 }) {
   const nodeRef = useRef<Konva.Node>(null)
   const updateShape = useStore(s => s.updateShape)
@@ -257,9 +259,10 @@ function ConnectorNode({ shape, shapes, isSelected, onSelect, onRegister, onDblC
           fill="transparent"
           opacity={shape.opacity}
           hitStrokeWidth={16}
-          onMouseDown={(e) => { if (e.evt.button === 0 && !e.evt.altKey) onSelect() }}
-          onTap={onSelect}
-          onDblClick={onDblClick}
+          onMouseDown={(e) => { if (e.evt.button === 0 && !e.evt.altKey) onSelect(shape, e) }}
+          onClick={(e) => { if (e.evt.button === 0 && !e.evt.altKey && !e.evt.shiftKey) onClickSelect(shape) }}
+          onTap={() => onSelect(shape, {} as Konva.KonvaEventObject<MouseEvent>)}
+          onDblClick={() => onDblClick?.(shape)}
         />
         {shape.label && (
           <Text
@@ -345,9 +348,10 @@ function ConnectorNode({ shape, shapes, isSelected, onSelect, onRegister, onDblC
         pointerWidth={8}
         opacity={shape.opacity}
         hitStrokeWidth={12}
-        onClick={onSelect}
-        onTap={onSelect}
-        onDblClick={onDblClick}
+        onMouseDown={(e) => { if (e.evt.button === 0 && !e.evt.altKey) onSelect(shape, e) }}
+        onClick={(e) => { if (e.evt.button === 0 && !e.evt.altKey && !e.evt.shiftKey) onClickSelect(shape) }}
+        onTap={() => onSelect(shape, {} as Konva.KonvaEventObject<MouseEvent>)}
+        onDblClick={() => onDblClick?.(shape)}
       />
       {shape.label && (
         <Text
@@ -374,16 +378,16 @@ function ConnectorNode({ shape, shapes, isSelected, onSelect, onRegister, onDblC
         listening={false} />
     </>
   )
-}
+})
 
-function ShapeNode({ shape, onSelect, onClickSelect, onChange, onRegister, onDblClick, onDragStartShape, onDragMoveShape, onDragEndShape }: {
+const ShapeNode = memo(function ShapeNode({ shape, onSelect, onClickSelect, onChange, onRegister, onDblClick, onDragStartShape, onDragMoveShape, onDragEndShape }: {
   shape: Shape
   isSelected: boolean
-  onSelect: (e: Konva.KonvaEventObject<MouseEvent>) => void
-  onClickSelect: () => void
-  onChange: (patch: Partial<Shape>) => void
+  onSelect: (shape: Shape, e: Konva.KonvaEventObject<MouseEvent>) => void
+  onClickSelect: (shape: Shape) => void
+  onChange: (id: string, patch: Partial<Shape>) => void
   onRegister: (id: string, node: Konva.Node | null) => void
-  onDblClick?: () => void
+  onDblClick?: (shape: Shape) => void
   onDragStartShape: (id: string, node: Konva.Node) => void
   onDragMoveShape: (id: string, node: Konva.Node) => void
   onDragEndShape: (id: string, node: Konva.Node) => void
@@ -420,15 +424,16 @@ function ShapeNode({ shape, onSelect, onClickSelect, onChange, onRegister, onDbl
     // dispara click y el shape se movería sin quedar nunca seleccionado
     onMouseDown: (e: Konva.KonvaEventObject<MouseEvent>) => {
       if (e.evt.button !== 0 || e.evt.altKey) return
-      onSelect(e)
+      onSelect(shape, e)
     },
     // Konva solo dispara click si NO hubo drag: colapsa una multi-selección
     // al elemento clickeado sin romper el arrastre de la selección completa
     onClick: (e: Konva.KonvaEventObject<MouseEvent>) => {
       if (e.evt.button !== 0 || e.evt.altKey || e.evt.shiftKey) return
-      onClickSelect()
+      onClickSelect(shape)
     },
-    onTap: () => onSelect({} as Konva.KonvaEventObject<MouseEvent>),
+    onTap: () => onSelect(shape, {} as Konva.KonvaEventObject<MouseEvent>),
+    onDblClick: () => onDblClick?.(shape),
     onDragStart: (e: Konva.KonvaEventObject<DragEvent>) => onDragStartShape(shape.id, e.target),
     onDragMove: (e: Konva.KonvaEventObject<DragEvent>) => onDragMoveShape(shape.id, e.target),
     onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => onDragEndShape(shape.id, e.target),
@@ -449,15 +454,15 @@ function ShapeNode({ shape, onSelect, onClickSelect, onChange, onRegister, onDbl
         dragBoundFunc={dragBoundFunc}
         onMouseDown={common.onMouseDown}
         onClick={common.onClick}
-        onTap={() => onSelect({} as Konva.KonvaEventObject<MouseEvent>)}
-        onDblClick={onDblClick}
+        onTap={common.onTap}
+        onDblClick={common.onDblClick}
         onDragStart={common.onDragStart}
         onDragMove={common.onDragMove}
         onDragEnd={common.onDragEnd}
         rotation={shape.rotation ?? 0}
         onTransformEnd={() => {
           const g = shapeRef.current as Konva.Group
-          onChange({ x: g.x(), y: g.y(), rotation: g.rotation(), width: Math.max(1, Math.abs(shape.width * g.scaleX())), height: Math.max(1, Math.abs(shape.height * g.scaleY())) } as Partial<Shape>)
+          onChange(shape.id, { x: g.x(), y: g.y(), rotation: g.rotation(), width: Math.max(1, Math.abs(shape.width * g.scaleX())), height: Math.max(1, Math.abs(shape.height * g.scaleY())) } as Partial<Shape>)
           g.scaleX(1); g.scaleY(1)
         }}
       >
@@ -493,15 +498,15 @@ function ShapeNode({ shape, onSelect, onClickSelect, onChange, onRegister, onDbl
         dragBoundFunc={dragBoundFunc}
         onMouseDown={common.onMouseDown}
         onClick={common.onClick}
-        onTap={() => onSelect({} as Konva.KonvaEventObject<MouseEvent>)}
-        onDblClick={onDblClick}
+        onTap={common.onTap}
+        onDblClick={common.onDblClick}
         onDragStart={common.onDragStart}
         onDragMove={common.onDragMove}
         onDragEnd={common.onDragEnd}
         rotation={shape.rotation ?? 0}
         onTransformEnd={() => {
           const g = shapeRef.current as Konva.Group
-          onChange({ x: g.x(), y: g.y(), rotation: g.rotation(), radiusX: Math.max(1, Math.abs(shape.radiusX * g.scaleX())), radiusY: Math.max(1, Math.abs(shape.radiusY * g.scaleY())) } as Partial<Shape>)
+          onChange(shape.id, { x: g.x(), y: g.y(), rotation: g.rotation(), radiusX: Math.max(1, Math.abs(shape.radiusX * g.scaleX())), radiusY: Math.max(1, Math.abs(shape.radiusY * g.scaleY())) } as Partial<Shape>)
           g.scaleX(1); g.scaleY(1)
         }}
       >
@@ -594,7 +599,7 @@ function ShapeNode({ shape, onSelect, onClickSelect, onChange, onRegister, onDbl
         dragBoundFunc={dragBoundFunc}
         onMouseDown={common.onMouseDown}
         onClick={common.onClick}
-        onTap={() => onSelect({} as Konva.KonvaEventObject<MouseEvent>)}
+        onTap={common.onTap}
         onDragStart={common.onDragStart}
         onDragMove={common.onDragMove}
         onDragEnd={common.onDragEnd}
@@ -651,7 +656,7 @@ function ShapeNode({ shape, onSelect, onClickSelect, onChange, onRegister, onDbl
   if (!node) return null
 
   return <>{node}</>
-}
+})
 
 function LabelEditor({ ed, scale, fontSize, fontFamily, bold, italic, onCommit, onCancel }: {
   ed: { shapeId: string; x: number; y: number; w: number; h: number; color: string; value: string }
@@ -699,15 +704,27 @@ export function Canvas() {
   const transformerRef = useRef<Konva.Transformer>(null)
   const shapeNodeRefs = useRef<Map<string, Konva.Node>>(new Map())
 
+  // Suscripción solo a lo que el render usa — sin esto, Canvas se
+  // re-renderiza con CUALQUIER cambio del store (clipboard, past/future, etc.)
   const {
     shapes, selectedIds, tool,
     strokeColor, fillColor, strokeWidth, strokeDash, opacity, roughEnabled,
     stageScale, stagePos, gridEnabled, theme,
     textFontSize, textFontFamily, textBold, textItalic,
+  } = useStore(useShallow(s => ({
+    shapes: s.shapes, selectedIds: s.selectedIds, tool: s.tool,
+    strokeColor: s.strokeColor, fillColor: s.fillColor, strokeWidth: s.strokeWidth,
+    strokeDash: s.strokeDash, opacity: s.opacity, roughEnabled: s.roughEnabled,
+    stageScale: s.stageScale, stagePos: s.stagePos, gridEnabled: s.gridEnabled, theme: s.theme,
+    textFontSize: s.textFontSize, textFontFamily: s.textFontFamily,
+    textBold: s.textBold, textItalic: s.textItalic,
+  })))
+  // Acciones: referencias estables del store, no necesitan suscripción
+  const {
     setTextFontSize, setTextFontFamily, setTextBold, setTextItalic,
     setSelectedIds, setStageScale, setStagePos, setTool, setIsLabelEditing,
     addShape, updateShape, deleteShape, deleteSelectedShapes,
-  } = useStore()
+  } = useStore.getState()
 
   const [viewport, setViewport] = useState({ w: window.innerWidth, h: window.innerHeight })
   useEffect(() => {
@@ -778,18 +795,21 @@ export function Canvas() {
   }, [updateShape, setIsLabelEditing])
 
   const openLabelEditor = useCallback((sh: RectShape | EllipseShape) => {
+    // lee escala/posición vía getState para mantener la referencia estable
+    // (los shapes memoizados reciben este callback)
+    const { stageScale: sc, stagePos: sp } = useStore.getState()
     let lx: number, ly: number, lw: number, lh: number
     if (sh.type === 'rect') {
       const w = sh.width, h = sh.height
-      lx = (w < 0 ? sh.x + w : sh.x) * stageScale + stagePos.x
-      ly = (h < 0 ? sh.y + h : sh.y) * stageScale + stagePos.y
-      lw = Math.abs(w) * stageScale
-      lh = Math.abs(h) * stageScale
+      lx = (w < 0 ? sh.x + w : sh.x) * sc + sp.x
+      ly = (h < 0 ? sh.y + h : sh.y) * sc + sp.y
+      lw = Math.abs(w) * sc
+      lh = Math.abs(h) * sc
     } else {
-      lx = (sh.x - sh.radiusX) * stageScale + stagePos.x
-      ly = (sh.y - sh.radiusY) * stageScale + stagePos.y
-      lw = sh.radiusX * 2 * stageScale
-      lh = sh.radiusY * 2 * stageScale
+      lx = (sh.x - sh.radiusX) * sc + sp.x
+      ly = (sh.y - sh.radiusY) * sc + sp.y
+      lw = sh.radiusX * 2 * sc
+      lh = sh.radiusY * 2 * sc
     }
     setTextFontSize(sh.labelFontSize ?? 16)
     setTextFontFamily(sh.labelFontFamily ?? 'system-ui, sans-serif')
@@ -797,7 +817,69 @@ export function Canvas() {
     setTextItalic(sh.labelItalic ?? false)
     setIsLabelEditing(true)
     setLabelEditor({ shapeId: sh.id, x: lx, y: ly, w: lw, h: lh, color: sh.strokeColor, value: sh.label ?? '' })
-  }, [stageScale, stagePos, setTextFontSize, setTextFontFamily, setTextBold, setTextItalic, setIsLabelEditing])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Handlers estables compartidos por todos los shapes: reciben el shape como
+  // argumento y leen el estado actual vía getState — así React.memo en
+  // ShapeNode/ConnectorNode evita re-renderizar los N shapes en cada cambio
+  const handleSelectShape = useCallback((shape: Shape, e: Konva.KonvaEventObject<MouseEvent>) => {
+    const st = useStore.getState()
+    if (st.tool === 'delete') { st.deleteShape(shape.id); return }
+    if (st.tool !== 'select') return
+    // un grupo es una unidad: nunca se seleccionan miembros sueltos
+    const gid = shape.groupId
+    const unit = gid
+      ? st.shapes.filter(s => s.groupId === gid).map(s => s.id)
+      : [shape.id]
+    if (e.evt?.shiftKey) {
+      const current = st.selectedIds
+      const allIn = unit.every(id => current.includes(id))
+      st.setSelectedIds(allIn
+        ? current.filter(id => !unit.includes(id))
+        : [...new Set([...current, ...unit])])
+    } else if (!unit.every(id => st.selectedIds.includes(id))) {
+      st.setSelectedIds(unit)
+    }
+    // si ya estaba seleccionado se mantiene la selección completa para poder
+    // arrastrarla; el click sin drag colapsa (handleClickSelectShape)
+  }, [])
+
+  const handleClickSelectShape = useCallback((shape: Shape) => {
+    const st = useStore.getState()
+    if (st.tool !== 'select') return
+    const gid = shape.groupId
+    const unit = gid
+      ? st.shapes.filter(s => s.groupId === gid).map(s => s.id)
+      : [shape.id]
+    if (st.selectedIds.length > unit.length && unit.every(id => st.selectedIds.includes(id))) {
+      st.setSelectedIds(unit)
+    }
+  }, [])
+
+  const handleChangeShape = useCallback((id: string, patch: Partial<Shape>) => {
+    useStore.getState().updateShape(id, patch)
+  }, [])
+
+  const handleDblClickShape = useCallback((shape: Shape) => {
+    const st = useStore.getState()
+    if (st.tool !== 'select') return
+    if (shape.type === 'rect' || shape.type === 'ellipse') {
+      openLabelEditor(shape)
+      return
+    }
+    if (shape.type === 'connector') {
+      const conn = shape
+      const startSh = conn.start.shapeId ? st.shapes.find(s => s.id === conn.start.shapeId) : null
+      const endSh = conn.end.shapeId ? st.shapes.find(s => s.id === conn.end.shapeId) : null
+      const sp = startSh && conn.start.anchor ? getAnchorPos(startSh, conn.start.anchor) : { x: conn.start.x, y: conn.start.y }
+      const ep = endSh && conn.end.anchor ? getAnchorPos(endSh, conn.end.anchor) : { x: conn.end.x, y: conn.end.y }
+      const screenX = ((sp.x + ep.x) / 2) * st.stageScale + st.stagePos.x
+      const screenY = ((sp.y + ep.y) / 2) * st.stageScale + st.stagePos.y
+      st.setIsLabelEditing(true)
+      setLabelEditor({ shapeId: conn.id, x: screenX - 75, y: screenY - 20, w: 150, h: 40, color: conn.strokeColor, value: conn.label ?? '' })
+    }
+  }, [openLabelEditor])
 
 
   // Register/unregister shape nodes for the Transformer
@@ -1356,80 +1438,24 @@ export function Canvas() {
                 shape={shape}
                 shapes={shapes}
                 isSelected={selectedIds.includes(shape.id)}
-                onSelect={() => {
-                  if (tool === 'delete') { deleteShape(shape.id); return }
-                  if (tool !== 'select') return
-                  const st = useStore.getState()
-                  const unit = shape.groupId
-                    ? st.shapes.filter(s => s.groupId === shape.groupId).map(s => s.id)
-                    : [shape.id]
-                  if (!unit.every(id => st.selectedIds.includes(id))) {
-                    setSelectedIds(unit)
-                  }
-                }}
+                onSelect={handleSelectShape}
+                onClickSelect={handleClickSelectShape}
                 onRegister={registerRef}
-                onDblClick={() => {
-                  if (tool !== 'select') return
-                  const conn = shape as ConnectorShape
-                  const startSh = conn.start.shapeId ? shapes.find(s => s.id === conn.start.shapeId) : null
-                  const endSh = conn.end.shapeId ? shapes.find(s => s.id === conn.end.shapeId) : null
-                  const sp2 = startSh && conn.start.anchor ? getAnchorPos(startSh, conn.start.anchor) : { x: conn.start.x, y: conn.start.y }
-                  const ep2 = endSh && conn.end.anchor ? getAnchorPos(endSh, conn.end.anchor) : { x: conn.end.x, y: conn.end.y }
-                  const midX2 = (sp2.x + ep2.x) / 2
-                  const midY2 = (sp2.y + ep2.y) / 2
-                  const screenX = midX2 * stageScale + stagePos.x
-                  const screenY = midY2 * stageScale + stagePos.y
-                  setIsLabelEditing(true)
-                  setLabelEditor({ shapeId: conn.id, x: screenX - 75, y: screenY - 20, w: 150, h: 40, color: conn.strokeColor, value: conn.label ?? '' })
-                }}
+                onDblClick={handleDblClickShape}
               />
             ) : (
               <ShapeNode
                 key={shape.id}
                 shape={shape}
                 isSelected={selectedIds.includes(shape.id)}
-                onSelect={(e: Konva.KonvaEventObject<MouseEvent>) => {
-                  if (tool === 'delete') { deleteShape(shape.id); return }
-                  if (tool !== 'select') return
-                  const st = useStore.getState()
-                  // un grupo es una unidad: nunca se seleccionan miembros sueltos
-                  const gid = (shape as Shape).groupId
-                  const unit = gid
-                    ? st.shapes.filter(s => s.groupId === gid).map(s => s.id)
-                    : [shape.id]
-                  if (e.evt?.shiftKey) {
-                    const current = st.selectedIds
-                    const allIn = unit.every(id => current.includes(id))
-                    setSelectedIds(allIn
-                      ? current.filter(id => !unit.includes(id))
-                      : [...new Set([...current, ...unit])])
-                  } else if (!unit.every(id => st.selectedIds.includes(id))) {
-                    setSelectedIds(unit)
-                  }
-                  // si ya estaba seleccionado se mantiene la selección completa
-                  // para poder arrastrarla; el click sin drag colapsa (onClickSelect)
-                }}
-                onClickSelect={() => {
-                  if (tool !== 'select') return
-                  const st = useStore.getState()
-                  const gid = (shape as Shape).groupId
-                  const unit = gid
-                    ? st.shapes.filter(s => s.groupId === gid).map(s => s.id)
-                    : [shape.id]
-                  if (st.selectedIds.length > unit.length && unit.every(id => st.selectedIds.includes(id))) {
-                    setSelectedIds(unit)
-                  }
-                }}
-                onChange={(patch) => updateShape(shape.id, patch)}
+                onSelect={handleSelectShape}
+                onClickSelect={handleClickSelectShape}
+                onChange={handleChangeShape}
                 onRegister={registerRef}
                 onDragStartShape={handleShapeDragStart}
                 onDragMoveShape={handleShapeDragMove}
                 onDragEndShape={handleShapeDragEnd}
-                onDblClick={() => {
-                  if (tool !== 'select') return
-                  if (shape.type !== 'rect' && shape.type !== 'ellipse') return
-                  openLabelEditor(shape as RectShape | EllipseShape)
-                }}
+                onDblClick={handleDblClickShape}
               />
             )
           )}

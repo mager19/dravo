@@ -1,12 +1,15 @@
 import { Group, Ungroup } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 import { useStore } from './store'
 import { T } from './i18n'
 
 export function GroupOptions() {
-  const { shapes, selectedIds, groupShapes, ungroupShapes, lang } = useStore()
+  const lang = useStore(s => s.lang)
+  // shallow sobre el array filtrado: solo re-renderiza si cambia la selección
+  const selectedShapes = useStore(useShallow(s => s.shapes.filter(sh => s.selectedIds.includes(sh.id))))
+  const { groupShapes, ungroupShapes } = useStore.getState()
   const t = T[lang].groupOptions
 
-  const selectedShapes = shapes.filter(s => selectedIds.includes(s.id))
   if (selectedShapes.length < 2) return null
 
   const groupIdSet = new Set(selectedShapes.map(s => s.groupId).filter((g): g is string => !!g))
@@ -21,7 +24,7 @@ export function GroupOptions() {
     >
       {!allInSameGroup && (
         <button
-          onClick={() => groupShapes(selectedIds)}
+          onClick={() => groupShapes(selectedShapes.map(s => s.id))}
           className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-[var(--c-muted)] hover:text-[var(--c-text)] hover:bg-[var(--c-hover)] transition-colors"
           title="⌘G"
         >

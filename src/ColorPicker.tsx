@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow'
 import { useStore } from './store'
 import { T } from './i18n'
 import type { StrokeWidth, StrokeDash } from './types'
@@ -6,8 +7,11 @@ const COLORS = ['#3b82f6', '#f43f5e', '#22c55e', '#f59e0b', '#a855f7', '#ec4899'
 const WIDTHS: StrokeWidth[] = [1, 2, 4, 8]
 
 export function ColorPicker() {
-  const { strokeColor, fillColor, strokeWidth, strokeDash, opacity, roughEnabled, lang,
-    setStrokeColor, setFillColor, setStrokeWidth, setStrokeDash, setOpacity, setRoughEnabled } = useStore()
+  const { strokeColor, fillColor, strokeWidth, strokeDash, opacity, roughEnabled, lang } = useStore(useShallow(s => ({
+    strokeColor: s.strokeColor, fillColor: s.fillColor, strokeWidth: s.strokeWidth,
+    strokeDash: s.strokeDash, opacity: s.opacity, roughEnabled: s.roughEnabled, lang: s.lang,
+  })))
+  const { setStrokeColor, setFillColor, setStrokeWidth, setStrokeDash, setOpacity, setRoughEnabled } = useStore.getState()
   const t = T[lang].colorPicker
 
   const DASHES: { value: StrokeDash; label: string; pattern: string }[] = [
