@@ -457,10 +457,11 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
               drawRoughOps(raw, d, shape.strokeColor, shape.fillColor, shape.strokeWidth)
               ctx.fillStrokeShape(sh)
             }} fill="transparent" stroke="transparent" strokeWidth={0} />
-            <Rect x={lx} y={ly} width={lw} height={lh} fill="transparent" stroke="transparent" strokeWidth={0} />
+            {/* hit area: interior solo si hay relleno o label; si no, solo el borde */}
+            <Rect x={lx} y={ly} width={lw} height={lh} fill="transparent" fillEnabled={shape.fillColor !== 'transparent' || !!shape.label} stroke="transparent" strokeWidth={shape.strokeWidth} hitStrokeWidth={14} />
           </>
         ) : (
-          <Rect x={lx} y={ly} width={lw} height={lh} fill={shape.fillColor} stroke={shape.strokeColor} strokeWidth={shape.strokeWidth} dash={dashArray.length ? dashArray : undefined} />
+          <Rect x={lx} y={ly} width={lw} height={lh} fill={shape.fillColor} fillEnabled={shape.fillColor !== 'transparent' || !!shape.label} hitStrokeWidth={12} stroke={shape.strokeColor} strokeWidth={shape.strokeWidth} dash={dashArray.length ? dashArray : undefined} />
         )}
         {shape.label && (
           <Text x={lx} y={ly} width={lw} height={lh} text={shape.label} fontSize={shape.labelFontSize ?? 16} fontFamily={shape.labelFontFamily ?? 'system-ui, sans-serif'} fontStyle={[shape.labelItalic ? 'italic' : '', shape.labelBold ? 'bold' : ''].filter(Boolean).join(' ') || 'normal'} fill={shape.strokeColor} align="center" verticalAlign="middle" wrap="word" padding={6} listening={false} />
@@ -498,10 +499,11 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
               drawRoughOps(raw, d, shape.strokeColor, shape.fillColor, shape.strokeWidth)
               ctx.fillStrokeShape(sh)
             }} fill="transparent" stroke="transparent" strokeWidth={0} />
-            <Ellipse x={0} y={0} radiusX={shape.radiusX} radiusY={shape.radiusY} fill="transparent" stroke="transparent" strokeWidth={0} />
+            {/* hit area: interior solo si hay relleno o label; si no, solo el borde */}
+            <Ellipse x={0} y={0} radiusX={shape.radiusX} radiusY={shape.radiusY} fill="transparent" fillEnabled={shape.fillColor !== 'transparent' || !!shape.label} stroke="transparent" strokeWidth={shape.strokeWidth} hitStrokeWidth={14} />
           </>
         ) : (
-          <Ellipse x={0} y={0} radiusX={shape.radiusX} radiusY={shape.radiusY} fill={shape.fillColor} stroke={shape.strokeColor} strokeWidth={shape.strokeWidth} dash={dashArray.length ? dashArray : undefined} />
+          <Ellipse x={0} y={0} radiusX={shape.radiusX} radiusY={shape.radiusY} fill={shape.fillColor} fillEnabled={shape.fillColor !== 'transparent' || !!shape.label} hitStrokeWidth={12} stroke={shape.strokeColor} strokeWidth={shape.strokeWidth} dash={dashArray.length ? dashArray : undefined} />
         )}
         {shape.label && (
           <Text x={-shape.radiusX} y={-shape.radiusY} width={shape.radiusX * 2} height={shape.radiusY * 2} text={shape.label} fontSize={shape.labelFontSize ?? 16} fontFamily={shape.labelFontFamily ?? 'system-ui, sans-serif'} fontStyle={[shape.labelItalic ? 'italic' : '', shape.labelBold ? 'bold' : ''].filter(Boolean).join(' ') || 'normal'} fill={shape.strokeColor} align="center" verticalAlign="middle" wrap="word" padding={6} listening={false} />
@@ -748,6 +750,29 @@ export function Canvas() {
     setIsLabelEditing(false)
   }, [updateShape, setIsLabelEditing])
 
+  const openLabelEditor = useCallback((sh: RectShape | EllipseShape) => {
+    let lx: number, ly: number, lw: number, lh: number
+    if (sh.type === 'rect') {
+      const w = sh.width, h = sh.height
+      lx = (w < 0 ? sh.x + w : sh.x) * stageScale + stagePos.x
+      ly = (h < 0 ? sh.y + h : sh.y) * stageScale + stagePos.y
+      lw = Math.abs(w) * stageScale
+      lh = Math.abs(h) * stageScale
+    } else {
+      lx = (sh.x - sh.radiusX) * stageScale + stagePos.x
+      ly = (sh.y - sh.radiusY) * stageScale + stagePos.y
+      lw = sh.radiusX * 2 * stageScale
+      lh = sh.radiusY * 2 * stageScale
+    }
+    setTextFontSize(sh.labelFontSize ?? 16)
+    setTextFontFamily(sh.labelFontFamily ?? 'system-ui, sans-serif')
+    setTextBold(sh.labelBold ?? false)
+    setTextItalic(sh.labelItalic ?? false)
+    setIsLabelEditing(true)
+    setLabelEditor({ shapeId: sh.id, x: lx, y: ly, w: lw, h: lh, color: sh.strokeColor, value: sh.label ?? '' })
+  }, [stageScale, stagePos, setTextFontSize, setTextFontFamily, setTextBold, setTextItalic, setIsLabelEditing])
+
+
   // Register/unregister shape nodes for the Transformer
   const registerRef = useCallback((id: string, node: Konva.Node | null) => {
     if (node) {
@@ -849,6 +874,25 @@ export function Canvas() {
       y: (pos.y - stagePos.y) / stageScale,
     }
   }, [stagePos, stageScale])
+
+  // El interior de rect/ellipse sin relleno ya no captura clicks (para poder
+  // iniciar el rubber band ahí) — el doble click para editar el label se
+  // resuelve aquí por bounds, sobre el shape de más arriba
+  const handleStageDblClick = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
+    if (tool !== 'select') return
+    if (e.target !== stageRef.current) return
+    const pos = getPointerPos()
+    const currentShapes = useStore.getState().shapes
+    for (let i = currentShapes.length - 1; i >= 0; i--) {
+      const sh = currentShapes[i]
+      if (sh.type !== 'rect' && sh.type !== 'ellipse') continue
+      const b = getShapeBounds(sh)
+      if (b && pos.x >= b.x && pos.x <= b.x + b.w && pos.y >= b.y && pos.y <= b.y + b.h) {
+        openLabelEditor(sh)
+        return
+      }
+    }
+  }, [tool, getPointerPos, openLabelEditor])
 
   const handleWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault()
@@ -1134,6 +1178,7 @@ export function Canvas() {
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
+        onDblClick={handleStageDblClick}
         onTouchStart={handleMouseDown as never}
         onTouchMove={handleMouseMove as never}
         onTouchEnd={handleMouseUp}
@@ -1229,26 +1274,7 @@ export function Canvas() {
                 onDblClick={() => {
                   if (tool !== 'select') return
                   if (shape.type !== 'rect' && shape.type !== 'ellipse') return
-                  const sh = shape as RectShape | EllipseShape
-                  let lx: number, ly: number, lw: number, lh: number
-                  if (sh.type === 'rect') {
-                    const w = sh.width, h = sh.height
-                    lx = (w < 0 ? sh.x + w : sh.x) * stageScale + stagePos.x
-                    ly = (h < 0 ? sh.y + h : sh.y) * stageScale + stagePos.y
-                    lw = Math.abs(w) * stageScale
-                    lh = Math.abs(h) * stageScale
-                  } else {
-                    lx = (sh.x - sh.radiusX) * stageScale + stagePos.x
-                    ly = (sh.y - sh.radiusY) * stageScale + stagePos.y
-                    lw = sh.radiusX * 2 * stageScale
-                    lh = sh.radiusY * 2 * stageScale
-                  }
-                  setTextFontSize(sh.labelFontSize ?? 16)
-                  setTextFontFamily(sh.labelFontFamily ?? 'system-ui, sans-serif')
-                  setTextBold(sh.labelBold ?? false)
-                  setTextItalic(sh.labelItalic ?? false)
-                  setIsLabelEditing(true)
-                  setLabelEditor({ shapeId: sh.id, x: lx, y: ly, w: lw, h: lh, color: sh.strokeColor, value: sh.label ?? '' })
+                  openLabelEditor(shape as RectShape | EllipseShape)
                 }}
               />
             )
