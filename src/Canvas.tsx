@@ -371,10 +371,11 @@ function ConnectorNode({ shape, shapes, isSelected, onSelect, onRegister, onDblC
   )
 }
 
-function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegister, onDblClick, onDragStartShape, onDragEndShape }: {
+function ShapeNode({ shape, isSelected: _isSelected, onSelect, onClickSelect, onChange, onRegister, onDblClick, onDragStartShape, onDragEndShape }: {
   shape: Shape
   isSelected: boolean
   onSelect: (e: Konva.KonvaEventObject<MouseEvent>) => void
+  onClickSelect: () => void
   onChange: (patch: Partial<Shape>) => void
   onRegister: (id: string, node: Konva.Node | null) => void
   onDblClick?: () => void
@@ -415,6 +416,12 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
       if (e.evt.button !== 0 || e.evt.altKey) return
       onSelect(e)
     },
+    // Konva solo dispara click si NO hubo drag: colapsa una multi-selección
+    // al elemento clickeado sin romper el arrastre de la selección completa
+    onClick: (e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (e.evt.button !== 0 || e.evt.altKey || e.evt.shiftKey) return
+      onClickSelect()
+    },
     onTap: () => onSelect({} as Konva.KonvaEventObject<MouseEvent>),
     onDragStart: (e: Konva.KonvaEventObject<DragEvent>) => onDragStartShape(shape.id, e.target),
     onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => onDragEndShape(shape.id, e.target),
@@ -434,6 +441,7 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
         draggable={tool === 'select'} opacity={shape.opacity}
         dragBoundFunc={dragBoundFunc}
         onMouseDown={common.onMouseDown}
+        onClick={common.onClick}
         onTap={() => onSelect({} as Konva.KonvaEventObject<MouseEvent>)}
         onDblClick={onDblClick}
         onDragStart={common.onDragStart}
@@ -476,6 +484,7 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
         draggable={tool === 'select'} opacity={shape.opacity}
         dragBoundFunc={dragBoundFunc}
         onMouseDown={common.onMouseDown}
+        onClick={common.onClick}
         onTap={() => onSelect({} as Konva.KonvaEventObject<MouseEvent>)}
         onDblClick={onDblClick}
         onDragStart={common.onDragStart}
@@ -575,6 +584,7 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
         draggable={tool === 'select'}
         dragBoundFunc={dragBoundFunc}
         onMouseDown={common.onMouseDown}
+        onClick={common.onClick}
         onTap={() => onSelect({} as Konva.KonvaEventObject<MouseEvent>)}
         onDragStart={common.onDragStart}
         onDragEnd={common.onDragEnd}
@@ -610,6 +620,7 @@ function ShapeNode({ shape, isSelected: _isSelected, onSelect, onChange, onRegis
         ref={shapeRef as React.RefObject<Konva.Text>}
         draggable={common.draggable}
         onMouseDown={common.onMouseDown}
+        onClick={common.onClick}
         onTap={common.onTap}
         onDragStart={common.onDragStart}
         onDragEnd={common.onDragEnd}
@@ -709,6 +720,11 @@ export function Canvas() {
   // Rubber band selection state
   const selStartPos = useRef<Point | null>(null)
   const [selBox, setSelBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null)
+
+  // Drag de la selección agarrando el espacio vacío dentro de su bbox
+  // (estilo Excalidraw) — los shapes huecos no capturan el interior, así que
+  // este gesto se maneja a nivel Stage moviendo los nodos imperativamente
+  const selDrag = useRef<{ origin: Point; nodes: { id: string; node: Konva.Node; start: Point }[] } | null>(null)
 
   // Connector state
   const [nearShapeId, setNearShapeId] = useState<string | null>(null)
@@ -923,9 +939,34 @@ export function Canvas() {
 
     if (tool === 'select') {
       if (e.target === stageRef.current) {
+        const pos = getPointerPos()
+        const { selectedIds: sel, shapes: currentShapes } = useStore.getState()
+        // Dentro del bbox de la selección: arrastrarla completa
+        if (sel.length) {
+          const bs = sel
+            .map(id => currentShapes.find(s => s.id === id))
+            .filter((s): s is Shape => !!s)
+            .map(getShapeBounds)
+            .filter((b): b is NonNullable<ReturnType<typeof getShapeBounds>> => !!b)
+          if (bs.length) {
+            const minX = Math.min(...bs.map(b => b.x))
+            const minY = Math.min(...bs.map(b => b.y))
+            const maxX = Math.max(...bs.map(b => b.x + b.w))
+            const maxY = Math.max(...bs.map(b => b.y + b.h))
+            if (pos.x >= minX && pos.x <= maxX && pos.y >= minY && pos.y <= maxY) {
+              const nodes: { id: string; node: Konva.Node; start: Point }[] = []
+              sel.forEach(id => {
+                const n = shapeNodeRefs.current.get(id)
+                if (n) nodes.push({ id, node: n, start: n.position() })
+              })
+              selDrag.current = { origin: pos, nodes }
+              return
+            }
+          }
+        }
         // Click on empty canvas: deselect and start rubber band
         setSelectedIds([])
-        selStartPos.current = getPointerPos()
+        selStartPos.current = pos
       }
       return
     }
@@ -977,6 +1018,15 @@ export function Canvas() {
       const dy = e.evt.clientY - lastPointer.current.y
       lastPointer.current = { x: e.evt.clientX, y: e.evt.clientY }
       setStagePos({ x: stagePos.x + dx, y: stagePos.y + dy })
+      return
+    }
+
+    // Drag de la selección iniciado en el hueco de su bbox
+    if (selDrag.current) {
+      const pos = getPointerPos()
+      const dx = pos.x - selDrag.current.origin.x
+      const dy = pos.y - selDrag.current.origin.y
+      selDrag.current.nodes.forEach(({ node, start }) => node.position({ x: start.x + dx, y: start.y + dy }))
       return
     }
 
@@ -1033,6 +1083,32 @@ export function Canvas() {
 
   const handleMouseUp = useCallback(() => {
     isPanning.current = false
+
+    // Finalizar drag de la selección iniciado en el hueco de su bbox
+    if (selDrag.current) {
+      const sd = selDrag.current
+      selDrag.current = null
+      const pos = getPointerPos()
+      const dx = pos.x - sd.origin.x
+      const dy = pos.y - sd.origin.y
+      if (Math.hypot(dx, dy) * stageScale < 3) {
+        // click sin arrastre en el hueco: deseleccionar, como siempre
+        sd.nodes.forEach(({ node, start }) => node.position(start))
+        setSelectedIds([])
+        return
+      }
+      useStore.getState().snapshot()
+      const st = useStore.getState()
+      // points-based: el delta se persiste en points y el nodo vuelve a su base
+      sd.nodes.forEach(({ id, node, start }) => {
+        const sh = st.shapes.find(s => s.id === id)
+        if (sh && (sh.type === 'line' || sh.type === 'arrow' || sh.type === 'connector')) {
+          node.position(start)
+        }
+      })
+      st.translateShapes(sd.nodes.map(n => n.id), dx, dy)
+      return
+    }
 
     // Connector: must run before the `drawing` guard
     const cs = connStartRef.current
@@ -1218,13 +1294,13 @@ export function Canvas() {
                 isSelected={selectedIds.includes(shape.id)}
                 onSelect={() => {
                   if (tool === 'delete') { deleteShape(shape.id); return }
-                  if (tool === 'select') {
-                    if (shape.groupId) {
-                      const members = useStore.getState().shapes.filter(s => s.groupId === shape.groupId).map(s => s.id)
-                      setSelectedIds(members)
-                    } else {
-                      setSelectedIds([shape.id])
-                    }
+                  if (tool !== 'select') return
+                  const st = useStore.getState()
+                  const unit = shape.groupId
+                    ? st.shapes.filter(s => s.groupId === shape.groupId).map(s => s.id)
+                    : [shape.id]
+                  if (!unit.every(id => st.selectedIds.includes(id))) {
+                    setSelectedIds(unit)
                   }
                 }}
                 onRegister={registerRef}
@@ -1263,7 +1339,20 @@ export function Canvas() {
                     setSelectedIds(allIn
                       ? current.filter(id => !unit.includes(id))
                       : [...new Set([...current, ...unit])])
-                  } else {
+                  } else if (!unit.every(id => st.selectedIds.includes(id))) {
+                    setSelectedIds(unit)
+                  }
+                  // si ya estaba seleccionado se mantiene la selección completa
+                  // para poder arrastrarla; el click sin drag colapsa (onClickSelect)
+                }}
+                onClickSelect={() => {
+                  if (tool !== 'select') return
+                  const st = useStore.getState()
+                  const gid = (shape as Shape).groupId
+                  const unit = gid
+                    ? st.shapes.filter(s => s.groupId === gid).map(s => s.id)
+                    : [shape.id]
+                  if (st.selectedIds.length > unit.length && unit.every(id => st.selectedIds.includes(id))) {
                     setSelectedIds(unit)
                   }
                 }}
