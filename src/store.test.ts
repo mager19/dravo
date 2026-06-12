@@ -14,7 +14,7 @@ vi.hoisted(() => {
 })
 
 import { useStore } from './store'
-import type { RectShape } from './types'
+import type { RectShape, GroupShape } from './types'
 
 function makeRect(id: string, extra: Partial<RectShape> = {}): RectShape {
   return {
@@ -109,6 +109,93 @@ describe('cambios de estilo sobre la selección', () => {
     expect(st.shapes[0].strokeColor).toBe('#3b82f6')
     expect(st.past).toHaveLength(0)
     expect(st.strokeColor).toBe('#00ff00')
+  })
+})
+
+describe('copy/paste/duplicate con grupos', () => {
+  function setupGroup() {
+    const r1 = makeRect('r1', { groupId: 'g1' })
+    const r2 = makeRect('r2', { x: 200, groupId: 'g1' })
+    const group = {
+      id: 'g1', type: 'group' as const, childIds: ['r1', 'r2'],
+      strokeColor: '#a78bfa', fillColor: 'transparent',
+      strokeWidth: 1 as const, strokeDash: 'dashed' as const, opacity: 1,
+    }
+    useStore.setState({ shapes: [r1, r2, group] })
+  }
+
+  it('pegar un grupo completo remapea childIds y groupId a las copias', () => {
+    setupGroup()
+    useStore.setState({ selectedIds: ['r1', 'r2'] })
+    useStore.getState().copySelected()
+    useStore.getState().paste()
+    const st = useStore.getState()
+    const newGroup = st.shapes.find((s): s is GroupShape => s.type === 'group' && s.id !== 'g1')
+    expect(newGroup).toBeDefined()
+    expect(newGroup!.childIds).toEqual(st.selectedIds)
+    // ningún childId apunta a shapes originales
+    expect(newGroup!.childIds.includes('r1')).toBe(false)
+    st.selectedIds.forEach(id => {
+      expect(st.shapes.find(s => s.id === id)!.groupId).toBe(newGroup!.id)
+    })
+  })
+
+  it('pegar un grupo parcial descarta el grupo y limpia groupId de la copia', () => {
+    setupGroup()
+    useStore.setState({ selectedIds: ['r1'] })
+    useStore.getState().copySelected() // clipboard: r1 + g1 (grupo de r1)
+    useStore.getState().paste()
+    const st = useStore.getState()
+    // el grupo pegado tendría 1 solo hijo — no debe sobrevivir
+    expect(st.shapes.filter(s => s.type === 'group')).toHaveLength(1)
+    const copy = st.shapes.find(s => s.id === st.selectedIds[0])!
+    expect(copy.groupId).toBeUndefined()
+    // el grupo original sigue intacto
+    const orig = st.shapes.find((s): s is GroupShape => s.id === 'g1')
+    expect(orig!.childIds).toEqual(['r1', 'r2'])
+  })
+
+  it('duplicate preserva la agrupación', () => {
+    setupGroup()
+    useStore.setState({ selectedIds: ['r1', 'r2'] })
+    useStore.getState().duplicate()
+    const st = useStore.getState()
+    expect(st.shapes.filter(s => s.type === 'group')).toHaveLength(2)
+    expect(st.selectedIds).toHaveLength(2)
+  })
+})
+
+describe('translateShapes (drag grupal)', () => {
+  it('traslada rect, line y connector por delta sin agregar historial', () => {
+    const styleBase = {
+      strokeColor: '#3b82f6', fillColor: 'transparent',
+      strokeWidth: 2 as const, strokeDash: 'solid' as const, opacity: 1,
+    }
+    const line = { ...styleBase, id: 'l1', type: 'line' as const, points: [0, 0, 10, 10] }
+    const conn = {
+      ...styleBase, id: 'c1', type: 'connector' as const, curved: true,
+      start: { shapeId: null, anchor: null, x: 0, y: 0 },
+      end: { shapeId: null, anchor: null, x: 50, y: 50 },
+      controlPoint: { x: 25, y: 10 },
+    }
+    useStore.setState({ shapes: [makeRect('r1'), line, conn] })
+    useStore.getState().translateShapes(['r1', 'l1', 'c1'], 10, 5)
+    const st = useStore.getState()
+    expect((st.shapes[0] as RectShape).x).toBe(10)
+    expect(st.shapes[1].type === 'line' && st.shapes[1].points).toEqual([10, 5, 20, 15])
+    const c = st.shapes[2]
+    expect(c.type === 'connector' && c.end.x).toBe(60)
+    expect(c.type === 'connector' && c.controlPoint!.y).toBe(15)
+    // sin snapshot: el gesto de drag lo toma en onDragStart
+    expect(st.past).toHaveLength(0)
+  })
+})
+
+describe('límite del historial', () => {
+  it('past no crece más allá de MAX_HISTORY (100)', () => {
+    useStore.setState({ shapes: [makeRect('r1')] })
+    for (let i = 0; i < 150; i++) useStore.getState().snapshot()
+    expect(useStore.getState().past).toHaveLength(100)
   })
 })
 

@@ -5,11 +5,16 @@ import { nanoid } from './utils'
 
 let _pasteCount = 0
 
+// Tope del historial de undo: cada entrada es un snapshot completo del canvas
+const MAX_HISTORY = 100
+
 function cloneWithOffset(shape: Shape, offset: number, idMap: Map<string, string>): Shape {
   const newId = idMap.get(shape.id)!
   const newGroupId = shape.groupId && idMap.has(shape.groupId) ? idMap.get(shape.groupId) : shape.groupId
   if (shape.type === 'group') {
-    return { ...shape, id: newId, groupId: newGroupId, childIds: shape.childIds.map(cid => idMap.get(cid) ?? cid) }
+    // Solo hijos que también se copiaron — nunca referenciar shapes originales
+    const childIds = shape.childIds.map(cid => idMap.get(cid)).filter((c): c is string => !!c)
+    return { ...shape, id: newId, groupId: newGroupId, childIds }
   }
   if (shape.type === 'rect' || shape.type === 'ellipse' || shape.type === 'text') {
     return { ...shape, id: newId, groupId: newGroupId, x: shape.x + offset, y: shape.y + offset }
@@ -41,6 +46,26 @@ function cloneWithOffset(shape: Shape, offset: number, idMap: Map<string, string
     }
   }
   return { ...(shape as Record<string, unknown>), id: newId, groupId: newGroupId } as Shape
+}
+
+function translateShape(sh: Shape, dx: number, dy: number): Shape {
+  if (sh.type === 'rect' || sh.type === 'ellipse' || sh.type === 'text')
+    return { ...sh, x: sh.x + dx, y: sh.y + dy }
+  if (sh.type === 'line' || sh.type === 'arrow')
+    return { ...sh, points: sh.points.map((v, i) => v + (i % 2 === 0 ? dx : dy)) }
+  if (sh.type === 'freehand')
+    return { ...sh, points: sh.points.map(([x, y, p]) => [x + dx, y + dy, p]) }
+  if (sh.type === 'connector') {
+    return {
+      ...sh,
+      start: { ...sh.start, x: sh.start.x + dx, y: sh.start.y + dy },
+      end: { ...sh.end, x: sh.end.x + dx, y: sh.end.y + dy },
+      controlPoint: sh.controlPoint
+        ? { x: sh.controlPoint.x + dx, y: sh.controlPoint.y + dy }
+        : undefined,
+    }
+  }
+  return sh
 }
 
 interface StoreActions {
@@ -82,6 +107,7 @@ interface StoreActions {
   setGridEnabled: (v: boolean) => void
   clearCanvas: () => void
   moveSelectedShapes: (dx: number, dy: number) => void
+  translateShapes: (ids: string[], dx: number, dy: number) => void
 }
 
 const INITIAL_STATE: CanvasState = {
@@ -162,7 +188,7 @@ export const useStore = create<CanvasState & StoreActions>((set, get) => {
 
   snapshot: () => {
     const { shapes, past } = get()
-    set({ past: [...past, shapes], future: [] })
+    set({ past: [...past, shapes].slice(-MAX_HISTORY), future: [] })
   },
 
   addShape: (shape) => {
@@ -232,17 +258,21 @@ export const useStore = create<CanvasState & StoreActions>((set, get) => {
     _pasteCount++
     const offset = _pasteCount * 10
     const idMap = new Map(clipboard.map(s => [s.id, nanoid()]))
-    const newShapes = clipboard.map(s => cloneWithOffset(s, offset, idMap))
+    const cloned = clipboard.map(s => cloneWithOffset(s, offset, idMap))
+    // Grupos con menos de 2 hijos copiados no sobreviven; limpiar groupIds huérfanos
+    const validGroups = new Set(cloned.filter(s => s.type === 'group' && s.childIds.length >= 2).map(s => s.id))
+    const newShapes = cloned
+      .filter(s => s.type !== 'group' || validGroups.has(s.id))
+      .map(s => s.type !== 'group' && s.groupId && !validGroups.has(s.groupId) ? { ...s, groupId: undefined } as Shape : s)
     get().snapshot()
     const nonGroupIds = newShapes.filter(s => s.type !== 'group').map(s => s.id)
     set(state => ({ shapes: [...state.shapes, ...newShapes], selectedIds: nonGroupIds }))
   },
 
   duplicate: () => {
-    const { shapes, selectedIds } = get()
-    if (!selectedIds.length) return
-    set({ clipboard: shapes.filter(s => selectedIds.includes(s.id)) })
-    _pasteCount = 0
+    if (!get().selectedIds.length) return
+    // copySelected incluye los grupos de la selección — duplicar preserva la agrupación
+    get().copySelected()
     get().paste()
   },
 
@@ -284,33 +314,17 @@ export const useStore = create<CanvasState & StoreActions>((set, get) => {
 
   setGridEnabled: (gridEnabled) => set({ gridEnabled }),
 
+  // Traslada por delta SIN snapshot — el snapshot lo toma quien inicia el gesto
+  translateShapes: (ids, dx, dy) => {
+    const idSet = new Set(ids)
+    set((s) => ({ shapes: s.shapes.map(sh => idSet.has(sh.id) ? translateShape(sh, dx, dy) : sh) }))
+  },
+
   moveSelectedShapes: (dx, dy) => {
     const { selectedIds } = get()
     if (!selectedIds.length) return
     get().snapshot()
-    set((s) => ({
-      shapes: s.shapes.map((sh) => {
-        if (!selectedIds.includes(sh.id)) return sh
-        if (sh.type === 'rect' || sh.type === 'ellipse' || sh.type === 'text')
-          return { ...sh, x: sh.x + dx, y: sh.y + dy }
-        if (sh.type === 'line' || sh.type === 'arrow')
-          return { ...sh, points: sh.points.map((v, i) => v + (i % 2 === 0 ? dx : dy)) }
-        if (sh.type === 'freehand')
-          return { ...sh, points: sh.points.map(([x, y, p]) => [x + dx, y + dy, p]) }
-        if (sh.type === 'connector') {
-          const conn = sh
-          return {
-            ...conn,
-            start: { ...conn.start, x: conn.start.x + dx, y: conn.start.y + dy },
-            end: { ...conn.end, x: conn.end.x + dx, y: conn.end.y + dy },
-            controlPoint: conn.controlPoint
-              ? { x: conn.controlPoint.x + dx, y: conn.controlPoint.y + dy }
-              : undefined,
-          }
-        }
-        return sh
-      }),
-    }))
+    get().translateShapes(selectedIds, dx, dy)
   },
 
   clearCanvas: () => {
