@@ -1,4 +1,5 @@
 import { useStore } from './store'
+import { sanitizeShapes } from './sanitize'
 import type { Shape } from './types'
 
 const KEY = 'dravo:shapes'
@@ -15,7 +16,9 @@ function persist(shapes: Shape[]) {
 export function loadFromStorage() {
   try {
     const raw = localStorage.getItem(KEY)
-    if (raw) useStore.getState().setShapes(JSON.parse(raw) as Shape[])
+    // sanitizar también el load: datos de versiones viejas (o corruptos)
+    // no deben poder romper el render al arrancar
+    if (raw) useStore.getState().setShapes(sanitizeShapes(JSON.parse(raw)))
   } catch {
     // JSON corrupto o storage inaccesible — se arranca con canvas vacío
   }

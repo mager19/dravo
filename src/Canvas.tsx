@@ -1014,11 +1014,13 @@ export function Canvas() {
     if (!stage) return { x: 0, y: 0 }
     const pos = stage.getPointerPosition()
     if (!pos) return { x: 0, y: 0 }
+    // getState: siempre el valor actual, y el callback queda estable
+    const { stagePos: sp, stageScale: sc } = useStore.getState()
     return {
-      x: (pos.x - stagePos.x) / stageScale,
-      y: (pos.y - stagePos.y) / stageScale,
+      x: (pos.x - sp.x) / sc,
+      y: (pos.y - sp.y) / sc,
     }
-  }, [stagePos, stageScale])
+  }, [])
 
   // El interior de rect/ellipse sin relleno ya no captura clicks (para poder
   // iniciar el rubber band ahí) — el doble click para editar el label se
@@ -1043,20 +1045,22 @@ export function Canvas() {
     e.evt.preventDefault()
     const stage = stageRef.current
     if (!stage) return
-    const oldScale = stageScale
+    // getState y no el closure: dos eventos de rueda seguidos llegan antes
+    // del re-render y el segundo acumularía sobre el valor viejo
+    const { stageScale: oldScale, stagePos: curPos } = useStore.getState()
     const pointer = stage.getPointerPosition()!
     const factor = e.evt.deltaY < 0 ? 1.1 : 0.9
     const newScale = Math.min(Math.max(oldScale * factor, 0.1), 10)
     const mousePointTo = {
-      x: (pointer.x - stagePos.x) / oldScale,
-      y: (pointer.y - stagePos.y) / oldScale,
+      x: (pointer.x - curPos.x) / oldScale,
+      y: (pointer.y - curPos.y) / oldScale,
     }
     setStageScale(newScale)
     setStagePos({
       x: pointer.x - mousePointTo.x * newScale,
       y: pointer.y - mousePointTo.y * newScale,
     })
-  }, [stageScale, stagePos, setStageScale, setStagePos])
+  }, [setStageScale, setStagePos])
 
   const handleMouseDown = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
     if (e.evt.button === 1 || (e.evt.button === 0 && e.evt.altKey)) {
@@ -1158,7 +1162,10 @@ export function Canvas() {
       const dx = e.evt.clientX - lastPointer.current.x
       const dy = e.evt.clientY - lastPointer.current.y
       lastPointer.current = { x: e.evt.clientX, y: e.evt.clientY }
-      setStagePos({ x: stagePos.x + dx, y: stagePos.y + dy })
+      // getState y no el closure: dos mousemove seguidos llegan antes del
+      // re-render y el segundo acumularía sobre la posición vieja (pan perdido)
+      const cur = useStore.getState().stagePos
+      setStagePos({ x: cur.x + dx, y: cur.y + dy })
       return
     }
 
@@ -1224,7 +1231,7 @@ export function Canvas() {
       const fh = shape as FreehandShape
       updateShape(draftId, { points: [...fh.points, [pos.x, pos.y, 0.5]] } as Partial<Shape>)
     }
-  }, [tool, drawing, draftId, getPointerPos, updateShape, stagePos, stageScale, setStagePos, connStart, setNearShapeId, setSnapAnchor, setConnDraftEnd])
+  }, [tool, drawing, draftId, getPointerPos, updateShape, stageScale, setStagePos, connStart, setNearShapeId, setSnapAnchor, setConnDraftEnd])
 
   const handleMouseUp = useCallback(() => {
     isPanning.current = false
