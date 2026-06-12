@@ -1280,6 +1280,27 @@ export function Canvas() {
             )
           )}
 
+          {/* Contorno individual por shape en multi-selección (estilo Excalidraw):
+              hace visible qué elementos están dentro de la selección */}
+          {selectedIds.length > 1 && shapes
+            .filter(s => selectedIds.includes(s.id) && s.type !== 'group' && s.type !== 'connector')
+            .map(s => {
+              const b = getShapeBounds(s)
+              if (!b) return null
+              const PAD = 3 / stageScale
+              return (
+                <Rect
+                  key={`sel-${s.id}`}
+                  x={b.x - PAD} y={b.y - PAD}
+                  width={b.w + PAD * 2} height={b.h + PAD * 2}
+                  stroke="#3b82f6"
+                  strokeWidth={1 / stageScale}
+                  fill="transparent"
+                  listening={false}
+                />
+              )
+            })}
+
           {/* Anchor dots al hacer hover en modo conector */}
           {tool === 'connector' && nearShapeId && (() => {
             const hovered = shapes.find(s => s.id === nearShapeId)
