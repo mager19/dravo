@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import Konva from 'konva'
 import { useShallow } from 'zustand/react/shallow'
-import { useStore } from './store'
+import { useStore, gestureInProgress } from './store'
 import { T } from './i18n'
 import { Tooltip } from './Tooltip'
 import type { Tool, Theme } from './types'
@@ -67,6 +67,9 @@ export function Toolbar({ onOpenJson, onOpenHelp, onOpenLayers, layersOpen, opti
     const onKey = (e: KeyboardEvent) => {
       const active = document.activeElement
       if (active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement) return
+      // mutar el store a mitad de un gesto (drag/draw/transform) corrompería
+      // el commit del gesto al soltar
+      if (gestureInProgress.current) return
       if (e.key === 'Delete' || e.key === 'Backspace') {
         const { selectedIds } = useStore.getState()
         if (selectedIds.length) { e.preventDefault(); deleteSelectedShapes() }

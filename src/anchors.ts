@@ -1,4 +1,5 @@
 import type { Shape, AnchorSide, Point } from './types'
+import { measureTextSize } from './utils'
 
 export const ANCHOR_SIDES: AnchorSide[] = ['n', 's', 'e', 'w', 'center']
 
@@ -50,8 +51,7 @@ export function getAnchorPos(shape: Shape, anchor: AnchorSide): Point {
       return applyTransform(local, shape.x, shape.y, shape.rotation ?? 0)
     }
     case 'text': {
-      const w = shape.text.length * (shape.fontSize * 0.55)
-      const h = shape.fontSize * 1.3
+      const { w, h } = measureTextSize(shape.text, shape.fontSize, shape.fontFamily, shape.bold, shape.italic)
       const cx = shape.x + w / 2
       const cy = shape.y + h / 2
       if (anchor === 'n') return { x: cx, y: shape.y }
@@ -88,10 +88,9 @@ export function isPointNearShape(shape: Shape, point: Point, padding: number): b
       return dx * dx + dy * dy <= 1
     }
     case 'text': {
-      const w = shape.text.length * (shape.fontSize * 0.55) + padding
-      const h = shape.fontSize * 1.3 + padding
-      return point.x >= shape.x - padding && point.x <= shape.x + w
-          && point.y >= shape.y - padding && point.y <= shape.y + h
+      const { w, h } = measureTextSize(shape.text, shape.fontSize, shape.fontFamily, shape.bold, shape.italic)
+      return point.x >= shape.x - padding && point.x <= shape.x + w + padding
+          && point.y >= shape.y - padding && point.y <= shape.y + h + padding
     }
     default:
       return false

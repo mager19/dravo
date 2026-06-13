@@ -8,6 +8,11 @@ let _pasteCount = 0
 // Tope del historial de undo: cada entrada es un snapshot completo del canvas
 const MAX_HISTORY = 100
 
+// Señal no-reactiva: hay un gesto de mouse en curso (drag/draw/transform).
+// Los atajos de teclado la consultan para no mutar el store a mitad de gesto
+// (un undo durante un drag corrompería el commit del gesto al soltar).
+export const gestureInProgress = { current: false }
+
 function cloneWithOffset(shape: Shape, offset: number, idMap: Map<string, string>): Shape {
   const newId = idMap.get(shape.id)!
   const newGroupId = shape.groupId && idMap.has(shape.groupId) ? idMap.get(shape.groupId) : shape.groupId

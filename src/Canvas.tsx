@@ -3,8 +3,8 @@ import { useShallow } from 'zustand/react/shallow'
 import Konva from 'konva'
 import { Stage, Layer, Rect, Ellipse, Line, Arrow, Shape as KonvaShape, Text, Transformer, Circle, Group } from 'react-konva'
 import { getStroke } from 'perfect-freehand'
-import { useStore } from './store'
-import { nanoid } from './utils'
+import { useStore, gestureInProgress } from './store'
+import { nanoid, measureTextSize } from './utils'
 import type { Shape, Point, FreehandShape, ConnectorShape, AnchorSide, StrokeDash, RectShape, EllipseShape } from './types'
 
 const DASH_MAP: Record<StrokeDash, number[]> = {
@@ -80,7 +80,10 @@ function getShapeBounds(shape: Shape): { x: number; y: number; w: number; h: num
     const [x1, y1, x2, y2] = shape.points
     return { x: Math.min(x1, x2), y: Math.min(y1, y2), w: Math.abs(x2 - x1), h: Math.abs(y2 - y1) }
   }
-  if (shape.type === 'text') return { x: shape.x, y: shape.y, w: 200, h: shape.fontSize * 1.5 }
+  if (shape.type === 'text') {
+    const { w, h } = measureTextSize(shape.text, shape.fontSize, shape.fontFamily, shape.bold, shape.italic)
+    return { x: shape.x, y: shape.y, w, h }
+  }
   if (shape.type === 'freehand') {
     const xs = shape.points.map(p => p[0])
     const ys = shape.points.map(p => p[1])
@@ -756,6 +759,16 @@ export function Canvas() {
   // este gesto se maneja a nivel Stage moviendo los nodos imperativamente
   const selDrag = useRef<{ origin: Point; nodes: { id: string; node: Konva.Node; start: Point; translate: boolean }[]; moved?: boolean } | null>(null)
 
+  // Con grilla activa, el delta del selDrag se snapea al pitch (en world
+  // coords) — equivalente al dragBoundFunc que usan los drags por nodo
+  const snapDelta = (dx: number, dy: number): Point => {
+    const { gridEnabled: ge, stageScale: sc } = useStore.getState()
+    if (!ge) return { x: dx, y: dy }
+    let pitch = 20
+    while (pitch * sc < 16) pitch *= 2
+    return { x: Math.round(dx / pitch) * pitch, y: Math.round(dy / pitch) * pitch }
+  }
+
   // Connector state
   const [nearShapeId, setNearShapeId] = useState<string | null>(null)
   const [snapAnchor, setSnapAnchor] = useState<{ shapeId: string; anchor: AnchorSide; pos: Point } | null>(null)
@@ -928,6 +941,7 @@ export function Canvas() {
       // de los nodos proxied llegan con la posición ya desplazada
       useStore.getState().snapshot()
       setDraggingSel(true)
+      gestureInProgress.current = true
       const { selectedIds: sel, shapes: currentShapes } = useStore.getState()
       g = { starts: new Map(), active: new Set(), connectors: [] }
       const draggedIds = new Set<string>()
@@ -988,6 +1002,7 @@ export function Canvas() {
       })
       dragGesture.current = null
       setDraggingSel(false)
+      gestureInProgress.current = false
     }
     useStore.getState().translateShapes(ids, dx, dy)
   }, [])
@@ -1121,6 +1136,7 @@ export function Canvas() {
                 }
               })
               selDrag.current = { origin: pos, nodes }
+              gestureInProgress.current = true
               return
             }
           }
@@ -1141,6 +1157,7 @@ export function Canvas() {
         connStartRef.current = cs
         setConnStart(cs)
         setConnDraftEnd(snap.pos)
+        gestureInProgress.current = true
       }
       return
     }
@@ -1159,6 +1176,7 @@ export function Canvas() {
 
     setDrawing(true)
     setDraftId(id)
+    gestureInProgress.current = true
 
     if (tool === 'rect') {
       addShape({ ...base, type: 'rect', x: pos.x, y: pos.y, width: 1, height: 1 })
@@ -1188,13 +1206,13 @@ export function Canvas() {
     // Drag de la selección iniciado en el hueco de su bbox
     if (selDrag.current) {
       const pos = getPointerPos()
-      const dx = pos.x - selDrag.current.origin.x
-      const dy = pos.y - selDrag.current.origin.y
-      if (!selDrag.current.moved && (dx !== 0 || dy !== 0)) {
+      const raw = { x: pos.x - selDrag.current.origin.x, y: pos.y - selDrag.current.origin.y }
+      if (!selDrag.current.moved && (raw.x !== 0 || raw.y !== 0)) {
         selDrag.current.moved = true
         setDraggingSel(true)
       }
-      selDrag.current.nodes.forEach(({ node, start }) => node.position({ x: start.x + dx, y: start.y + dy }))
+      const d = snapDelta(raw.x, raw.y)
+      selDrag.current.nodes.forEach(({ node, start }) => node.position({ x: start.x + d.x, y: start.y + d.y }))
       return
     }
 
@@ -1251,6 +1269,9 @@ export function Canvas() {
 
   const handleMouseUp = useCallback(() => {
     isPanning.current = false
+    // los gestos de Stage (selDrag, dibujo, conector) terminan aquí; los de
+    // nodo (drag/transform) limpian su propia señal en su finalize
+    gestureInProgress.current = false
 
     // Finalizar drag de la selección iniciado en el hueco de su bbox
     if (selDrag.current) {
@@ -1258,14 +1279,14 @@ export function Canvas() {
       selDrag.current = null
       setDraggingSel(false)
       const pos = getPointerPos()
-      const dx = pos.x - sd.origin.x
-      const dy = pos.y - sd.origin.y
-      if (Math.hypot(dx, dy) * stageScale < 3) {
+      const rawD = { x: pos.x - sd.origin.x, y: pos.y - sd.origin.y }
+      if (Math.hypot(rawD.x, rawD.y) * stageScale < 3) {
         // click sin arrastre en el hueco: deseleccionar, como siempre
         sd.nodes.forEach(({ node, start }) => node.position(start))
         setSelectedIds([])
         return
       }
+      const { x: dx, y: dy } = snapDelta(rawD.x, rawD.y)
       useStore.getState().snapshot()
       const st = useStore.getState()
       // points-based: el delta se persiste en points y el nodo vuelve a su base
@@ -1370,6 +1391,7 @@ export function Canvas() {
     const onKeyDown = (e: KeyboardEvent) => {
       if (document.activeElement instanceof HTMLTextAreaElement) return
       if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (gestureInProgress.current) return
         const { selectedIds } = useStore.getState()
         if (selectedIds.length) {
           e.preventDefault()
@@ -1577,6 +1599,7 @@ export function Canvas() {
               // un solo snapshot por gesto de transform, aun con multi-select
               useStore.getState().snapshot()
               setDraggingSel(true)
+              gestureInProgress.current = true
               const { shapes: s, selectedIds: selIds } = useStore.getState()
               const bounds = selIds
                 .map(id => s.find(sh => sh.id === id))
@@ -1592,6 +1615,7 @@ export function Canvas() {
             }}
             onTransformEnd={() => {
               setDraggingSel(false)
+              gestureInProgress.current = false
               const pre = preTrSelBounds.current
               preTrSelBounds.current = null
               if (!pre || pre.w === 0 || pre.h === 0) return
