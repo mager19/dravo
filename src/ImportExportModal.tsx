@@ -1,18 +1,20 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { X, Copy, Check, Upload } from 'lucide-react'
 import { useStore } from './store'
 import { T } from './i18n'
 import { sanitizeShapes } from './sanitize'
 
 export function ImportExportModal({ onClose }: { onClose: () => void }) {
-  const { shapes, setShapes, snapshot, lang } = useStore()
+  const shapes = useStore(s => s.shapes)
+  const lang = useStore(s => s.lang)
+  const { setShapes, snapshot } = useStore.getState()
   const t = T[lang].importExport
   const [tab, setTab] = useState<'export' | 'import'>('export')
   const [copied, setCopied] = useState(false)
   const [importText, setImportText] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  const json = JSON.stringify(shapes, null, 2)
+  const json = useMemo(() => JSON.stringify(shapes, null, 2), [shapes])
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(json)

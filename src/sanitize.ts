@@ -118,6 +118,7 @@ export function sanitizeShapes(raw: unknown, lang: Lang = 'es'): Shape[] {
   if (raw.length > MAX_SHAPES) throw new Error(ts.tooMany(MAX_SHAPES))
 
   const result: Shape[] = []
+  const seenIds = new Set<string>()
 
   for (const item of raw) {
     if (!item || typeof item !== 'object' || Array.isArray(item)) continue
@@ -126,6 +127,11 @@ export function sanitizeShapes(raw: unknown, lang: Lang = 'es'): Shape[] {
 
     try {
       const base = sanitizeBase(r)
+      // ids duplicados (JSON editado a mano o exports concatenados): el
+      // primero conserva el id, los repetidos reciben uno nuevo — las
+      // referencias (groupId, anchors) siguen apuntando al primero
+      if (seenIds.has(base.id)) base.id = nanoid()
+      seenIds.add(base.id)
 
       if (r.type === 'rect') {
         result.push({
@@ -174,23 +180,34 @@ export function sanitizeShapes(raw: unknown, lang: Lang = 'es'): Shape[] {
           ...sanitizeControlPoint(r.controlPoint),
         })
       } else if (r.type === 'group') {
-        const childIds = Array.isArray(r.childIds)
-          ? r.childIds.map((c: unknown) => typeof c === 'string' ? sanitizeId(c) : '').filter(Boolean)
-          : []
-        if (childIds.length >= 2) {
-          result.push({ ...base, type: 'group', childIds } as GroupShape)
-        }
+        // childIds se reconstruye al final desde los miembros reales
+        result.push({ ...base, type: 'group', childIds: [] } as GroupShape)
       }
     } catch {
       // shape malformado — se ignora, no rompe el resto
     }
   }
 
-  // Limpiar groupIds huérfanos (sin GroupShape correspondiente)
-  const groupSet = new Set(result.filter(s => s.type === 'group').map(s => s.id))
-  return result.map(s =>
-    s.type !== 'group' && s.groupId && !groupSet.has(s.groupId)
-      ? { ...s, groupId: undefined } as Shape
-      : s
+  // Consistencia de grupos: la fuente de verdad es el groupId de los
+  // miembros. childIds se deriva de ahí; un grupo con menos de 2 miembros
+  // reales se descarta y sus groupIds quedan limpios.
+  const groupIds = new Set(result.filter(s => s.type === 'group').map(s => s.id))
+  const membersByGroup = new Map<string, string[]>()
+  for (const s of result) {
+    if (s.type === 'group' || !s.groupId) continue
+    if (!groupIds.has(s.groupId)) continue
+    const members = membersByGroup.get(s.groupId) ?? []
+    members.push(s.id)
+    membersByGroup.set(s.groupId, members)
+  }
+  const validGroups = new Set(
+    [...membersByGroup.entries()].filter(([, m]) => m.length >= 2).map(([gid]) => gid)
   )
+  return result
+    .filter(s => s.type !== 'group' || validGroups.has(s.id))
+    .map(s => {
+      if (s.type === 'group') return { ...s, childIds: membersByGroup.get(s.id)! }
+      if (s.groupId && !validGroups.has(s.groupId)) return { ...s, groupId: undefined } as Shape
+      return s
+    })
 }

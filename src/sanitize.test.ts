@@ -138,6 +138,40 @@ describe('sanitización de input inválido', () => {
     expect((result[0] as RectShape).groupId).toBeUndefined()
   })
 
+  it('regenera ids duplicados conservando el primero', () => {
+    const result = sanitizeShapes([
+      { ...base, id: 'dup', type: 'rect', x: 0, y: 0, width: 10, height: 10 },
+      { ...base, id: 'dup', type: 'rect', x: 50, y: 0, width: 10, height: 10 },
+    ])
+    expect(result).toHaveLength(2)
+    expect(result[0].id).toBe('dup')
+    expect(result[1].id).not.toBe('dup')
+    expect(result[1].id.length).toBeGreaterThan(0)
+  })
+
+  it('reconstruye childIds desde los miembros reales (groupId es la fuente de verdad)', () => {
+    const result = sanitizeShapes([
+      { ...base, id: 'm1', type: 'rect', x: 0, y: 0, width: 10, height: 10, groupId: 'g1' },
+      { ...base, id: 'm2', type: 'rect', x: 20, y: 0, width: 10, height: 10, groupId: 'g1' },
+      // childIds fantasma: no existe ningún shape 'zzz' ni 'qqq'
+      { ...base, id: 'g1', type: 'group', childIds: ['zzz', 'qqq'] },
+    ])
+    const group = result.find((s): s is GroupShape => s.type === 'group')
+    expect(group!.childIds).toEqual(['m1', 'm2'])
+  })
+
+  it('descarta grupos sin al menos 2 miembros reales y limpia sus groupIds', () => {
+    const result = sanitizeShapes([
+      // grupo con childIds "válidos" pero ningún shape lo referencia
+      { ...base, id: 'g1', type: 'group', childIds: ['a', 'b'] },
+      // grupo con un solo miembro real
+      { ...base, id: 'g2', type: 'group', childIds: ['m1'] },
+      { ...base, id: 'm1', type: 'rect', x: 0, y: 0, width: 10, height: 10, groupId: 'g2' },
+    ])
+    expect(result.filter(s => s.type === 'group')).toHaveLength(0)
+    expect(result.find(s => s.id === 'm1')!.groupId).toBeUndefined()
+  })
+
   it('trunca labels excesivamente largos', () => {
     const result = sanitizeShapes([
       { ...base, id: 'r1', type: 'rect', x: 0, y: 0, width: 10, height: 10, label: 'x'.repeat(50_000) },
